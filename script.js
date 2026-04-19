@@ -256,6 +256,27 @@ function plot3D(wrap, S, T) {
     canvas.style.display = 'block';
     wrap.appendChild(canvas);
 
+    // Create legend overlay
+    const legend = document.createElement('div');
+    legend.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(255,255,255,0.95);border:1px solid #ddd;border-radius:4px;padding:8px 12px;font-family:"Source Code Pro",monospace;font-size:12px;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.1)';
+    const legItems = [
+        { label: 'Source', color: '#1f6fa8' },
+        { label: 'Test', color: '#c0530a' }
+    ];
+    legend.innerHTML = legItems.map((item, i) => `
+        <div style="display:flex;align-items:center;margin-bottom:${i === 0 ? '6px' : '0'}">
+            <div style="width:12px;height:12px;background-color:${item.color};border-radius:2px;margin-right:8px"></div>
+            <span style="color:#222;font-weight:bold">${item.label}</span>
+        </div>
+    `).join('');
+    
+    const legendWrapper = document.createElement('div');
+    legendWrapper.style.cssText = 'position:relative;width:100%;height:100%';
+    legendWrapper.appendChild(canvas);
+    legendWrapper.appendChild(legend);
+    wrap.style.position = 'relative';
+    wrap.appendChild(legendWrapper);
+
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, pixelRatio: dpr });
     renderer.setSize(cssW, cssH, false);      // false = don't touch CSS sizing
     renderer.setPixelRatio(dpr);
@@ -368,11 +389,33 @@ function run() {
     // Algorithm blocks
     const ac = document.getElementById('algoContainer');
     ac.innerHTML = '';
+    
+    // Show source and test trajectories once
+    const introDiv = document.createElement('div');
+    introDiv.className = 'algo-block';
+    const sid = `s2d_intro`, tid = `t2d_intro`;
+    const swid = `sw_intro`, twid = `tw_intro`;
+    introDiv.innerHTML = `
+    <div class="algo-hdr">
+      <h3 class="algo-title">Input Trajectories</h3>
+    </div>
+    <div class="figs-row">
+      <div class="fig-card">
+        <div class="canvas-wrap" id="${swid}"><canvas id="${sid}"></canvas></div>
+        <div class="fig-cap">Source Trajectory</div>
+      </div>
+      <div class="fig-card">
+        <div class="canvas-wrap" id="${twid}"><canvas id="${tid}"></canvas></div>
+        <div class="fig-cap">Test Trajectory</div>
+      </div>
+    </div>`;
+    ac.appendChild(introDiv);
+    
     results.forEach((r, i) => {
         const pct = (r.sim * 100).toFixed(2);
         const sc = r.sim >= 0.75 ? 'good' : r.sim >= 0.45 ? 'mid' : 'low';
-        const sid = `s2d_${i}`, tid = `t2d_${i}`, cid = `c2d_${i}`;
-        const swid = `sw_${i}`, twid = `tw_${i}`, cwid = `cw_${i}`, dwid = `dw_${i}`;
+        const cid = `c2d_${i}`;
+        const cwid = `cw_${i}`, dwid = `dw_${i}`;
         const div = document.createElement('div');
         div.className = 'algo-block';
         div.innerHTML = `
@@ -389,32 +432,28 @@ function run() {
       </div>
       <div class="figs-row">
         <div class="fig-card">
-          <div class="canvas-wrap" id="${swid}"><canvas id="${sid}"></canvas></div>
-          <div class="fig-cap">Fig. ${i + 1}a. Source Trajectory — ${ALGOS[i].name}</div>
+          <div class="canvas-wrap" id="${cwid}" style="height:320px"><canvas id="${cid}"></canvas></div>
+          <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Source (blue), Test (orange). Similarity = ${pct}%</div>
         </div>
         <div class="fig-card">
-          <div class="canvas-wrap" id="${twid}"><canvas id="${tid}"></canvas></div>
-          <div class="fig-cap">Fig. ${i + 1}b. Test Trajectory — ${ALGOS[i].name}</div>
-        </div>
-        <div class="fig-card wide">
-          <div  class="fig-cap" id="${cwid}"><canvas id="${cid}"></canvas></div>
-          <div class="fig-cap">Fig. ${i + 1}c. Overlay Comparison — ${ALGOS[i].name}. Source (blue), Test (orange). Similarity = ${pct}%</div>
-        </div>
-        <div class="fig-card wide">
           <div class="canvas-3d-wrap" id="${dwid}" style="height:320px"></div>
-          <div class="fig-cap">Fig. ${i + 1}d. 3D Spatio-Temporal View — ${ALGOS[i].name}. Z-axis represents time index. Drag to rotate, scroll to zoom.</div>
+          <div class="fig-cap">Fig. ${i + 1}b. 3D Spatio-Temporal View — ${ALGOS[i].name}. Z-axis represents time index. Drag to rotate, scroll to zoom.</div>
         </div>
       </div>`;
         ac.appendChild(div);
     });
 
     requestAnimationFrame(() => {
+        // Plot source and test once
+        const sid = `s2d_intro`, tid = `t2d_intro`;
+        plot2D(document.getElementById(sid), [S], [C_SRC], 'Source Trajectory', b, 270);
+        plot2D(document.getElementById(tid), [T], [C_TST], 'Test Trajectory', b, 270);
+        
+        // Plot comparison and 3D for each algorithm
         results.forEach((r, i) => {
-            const sid = `s2d_${i}`, tid = `t2d_${i}`, cid = `c2d_${i}`;
-            const swid = `sw_${i}`, twid = `tw_${i}`, cwid = `cw_${i}`, dwid = `dw_${i}`;
-            plot2D(document.getElementById(sid), [S], [C_SRC], 'Source Trajectory', b, 270);
-            plot2D(document.getElementById(tid), [T], [C_TST], 'Test Trajectory', b, 270);
-            plot2D(document.getElementById(cid), [S, T], [C_SRC, C_TST], `Trajectory Comparison — ${ALGOS[i].name}`, b, 290);
+            const cid = `c2d_${i}`;
+            const cwid = `cw_${i}`, dwid = `dw_${i}`;
+            plot2D(document.getElementById(cid), [S, T], [C_SRC, C_TST], `Trajectory Comparison — ${ALGOS[i].name}`, b, 320);
             plot3D(document.getElementById(dwid), S, T);
         });
         document.getElementById('overlay').classList.remove('on');
