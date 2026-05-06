@@ -1,5 +1,4 @@
 
-// ── GPX Parser ──────────────────────────────────
 function parseGPX(txt) {
     const xml = new DOMParser().parseFromString(txt, 'application/xml');
     const nodes = xml.querySelectorAll('trkpt,wpt,rtept');
@@ -12,7 +11,7 @@ function parseGPX(txt) {
     return pts;
 }
 
-// ── File Upload ──────────────────────────────────
+
 let SRC = null, TST = null;
 
 function setupUpload(inputId, dropId, infoId, cb) {
@@ -47,7 +46,6 @@ setupUpload('sFile', 'sDrop', 'sInfo', p => SRC = p);
 setupUpload('tFile', 'tDrop', 'tInfo', p => TST = p);
 function checkReady() { document.getElementById('runBtn').disabled = !(SRC && TST); }
 
-// ── Math ──────────────────────────────────────────
 const ed = (a, b) => { const dl = a.lat - b.lat, dn = a.lon - b.lon; return Math.sqrt(dl * dl + dn * dn); };
 
 function getBounds(pts, pad = 0.35) {
@@ -60,7 +58,6 @@ function getBounds(pts, pad = 0.35) {
     return { mnLa: mnLa - dLa, mxLa: mxLa + dLa, mnLo: mnLo - dLo, mxLo: mxLo + dLo };
 }
 
-// ── Algorithms ────────────────────────────────────
 function algoDTW(S, T) {
     const n = S.length, m = T.length;
     const D = Array.from({ length: n + 1 }, () => new Float64Array(m + 1).fill(Infinity));
@@ -131,7 +128,6 @@ function algoRL(S, T) {
 
 const simScore = (ae, me) => me === 0 ? 1 : Math.max(0, Math.min(1, 1 - ae / me));
 
-// ── HiDPI canvas helper ──────────────────────────
 function setupHiDPI(canvas, cssW, cssH) {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(cssW * dpr);
@@ -154,98 +150,156 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
     const P = { t: 42, r: 24, b: 50, l: 68 };
     const PW = W - P.l - P.r, PH = H - P.t - P.b;
 
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    // Zoom and pan state
+    let zoom = 1, panX = 0, panY = 0;
+    const centerX = P.l + PW / 2;
+    const centerY = P.t + PH / 2;
 
-    // Plot area
-    ctx.fillStyle = '#fdfdfc'; ctx.fillRect(P.l, P.t, PW, PH);
+    function redraw() {
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
 
-    // Grid
-    const NX = 5, NY = 5;
-    ctx.strokeStyle = '#e8e5de'; ctx.lineWidth = 0.75;
-    for (let i = 0; i <= NX; i++) { const x = P.l + PW / NX * i; ctx.beginPath(); ctx.moveTo(x, P.t); ctx.lineTo(x, P.t + PH); ctx.stroke(); }
-    for (let i = 0; i <= NY; i++) { const y = P.t + PH / NY * i; ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + PW, y); ctx.stroke(); }
+        // Save context and apply zoom/pan transformation
+        ctx.save();
+        ctx.translate(centerX + panX, centerY + panY);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-centerX, -centerY);
 
-    // Axes border
-    ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
-    ctx.strokeRect(P.l, P.t, PW, PH);
+        // Plot area
+        ctx.fillStyle = '#fdfdfc'; ctx.fillRect(P.l, P.t, PW, PH);
 
-    // Map function
-    const mp = (p) => [P.l + (p.lon - b.mnLo) / (b.mxLo - b.mnLo) * PW, P.t + (1 - (p.lat - b.mnLa) / (b.mxLa - b.mnLa)) * PH];
+        // Grid
+        const NX = 5, NY = 5;
+        ctx.strokeStyle = '#e8e5de'; ctx.lineWidth = 0.75;
+        for (let i = 0; i <= NX; i++) { const x = P.l + PW / NX * i; ctx.beginPath(); ctx.moveTo(x, P.t); ctx.lineTo(x, P.t + PH); ctx.stroke(); }
+        for (let i = 0; i <= NY; i++) { const y = P.t + PH / NY * i; ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + PW, y); ctx.stroke(); }
 
-    // Draw tracks with anti-aliased crisp lines
-    tracks.forEach((pts, ci) => {
-        if (!pts || pts.length < 2) return;
-        
-        // Remove closing loop if last point is same as first
-        let drawPts = pts;
-        const d = ed(pts[0], pts[pts.length - 1]);
-        if (d < 0.0001) {
-            drawPts = pts.slice(0, -1);
+        // Axes border
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+        ctx.strokeRect(P.l, P.t, PW, PH);
+
+        // Map function (regular, no zoom)
+        const mp = (p) => [P.l + (p.lon - b.mnLo) / (b.mxLo - b.mnLo) * PW, P.t + (1 - (p.lat - b.mnLa) / (b.mxLa - b.mnLa)) * PH];
+
+        // Draw tracks with anti-aliased crisp lines
+        tracks.forEach((pts, ci) => {
+            if (!pts || pts.length < 2) return;
+            
+            let drawPts = pts;
+            const d = ed(pts[0], pts[pts.length - 1]);
+            if (d < 0.0001) {
+                drawPts = pts.slice(0, -1);
+            }
+            if (drawPts.length < 1) return;
+            
+            ctx.strokeStyle = colors[ci];
+            ctx.lineWidth = tracks.length > 1 ? 2.2 : 1.8;
+            ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+            if (tracks.length > 1 && ci === 1) {
+                ctx.setLineDash([5, 4]);
+            }
+            ctx.beginPath();
+            const [x0, y0] = mp(drawPts[0]); ctx.moveTo(x0, y0);
+            drawPts.forEach(p => { const [x, y] = mp(p); ctx.lineTo(x, y); });
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // start dot
+            const [sx, sy] = mp(pts[0]);
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = colors[ci]; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.stroke();
+            // end dot
+            const [ex, ey] = mp(pts[pts.length - 1]);
+            ctx.fillStyle = colors[ci]; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.stroke();
+        });
+
+        // Tick labels — crisp at HiDPI
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 12px "Source Code Pro"';
+        ctx.textAlign = 'center';
+        for (let i = 0; i <= NX; i++) {
+            const v = b.mnLo + (b.mxLo - b.mnLo) / NX * i;
+            ctx.fillText(v.toFixed(3), P.l + PW / NX * i, P.t + PH + 18);
         }
-        if (drawPts.length < 1) return;
-        
-        ctx.strokeStyle = colors[ci];
-        ctx.lineWidth = tracks.length > 1 ? 2.2 : 1.8;  // Thicker for comparison plots
-        ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-        if (tracks.length > 1 && ci === 1) {
-            ctx.setLineDash([5, 4]);  // Dashed line for test trajectory
+        ctx.textAlign = 'right';
+        for (let i = 0; i <= NY; i++) {
+            const v = b.mnLa + (b.mxLa - b.mnLa) / NY * (NY - i);
+            ctx.fillText(v.toFixed(3), P.l - 10, P.t + PH / NY * i + 5);
         }
-        ctx.beginPath();
-        const [x0, y0] = mp(drawPts[0]); ctx.moveTo(x0, y0);
-        drawPts.forEach(p => { const [x, y] = mp(p); ctx.lineTo(x, y); });
-        ctx.stroke();
-        ctx.setLineDash([]);  // Reset dash pattern
-        // start dot
-        const [sx, sy] = mp(pts[0]);
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = colors[ci]; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.stroke();
-        // end dot
-        const [ex, ey] = mp(pts[pts.length - 1]);
-        ctx.fillStyle = colors[ci]; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.stroke();
+
+        // Axis labels
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 13px "Source Code Pro",monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Longitude', P.l + PW / 2, H - 6);
+        ctx.save(); ctx.translate(10, P.t + PH / 2); ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Latitude', 0, 0); ctx.restore();
+        
+        // Axis end labels (X, -X, Y, -Y)
+        // ctx.fillStyle = '#c0530a';
+        // ctx.font = 'bold 11px "Source Code Pro",monospace';
+        // ctx.textAlign = 'right';
+        // ctx.fillText('X', P.l + PW + 6, P.t + PH + 5);.
+        // ctx.textAlign = 'left';
+        // ctx.fillText('-X', P.l - 6, P.t + PH + 5);
+        // ctx.fillStyle = '#1f6fa8';
+        // ctx.textAlign = 'center';
+        // ctx.fillText('Y', P.l - 18, P.t - 2);
+        // ctx.fillText('-Y', P.l - 18, P.t + PH + 12);
+
+        // Title
+        ctx.fillStyle = '#1a1916';
+        ctx.font = '700 15px "EB Garamond",Georgia,serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, P.l + PW / 2, 28);
+
+        // Legend
+        if (tracks.length > 1) {
+            const lx = P.l + PW - 160, ly = P.t + 8;
+            ['Source', 'Test'].forEach((lbl, i) => {
+                ctx.strokeStyle = colors[i]; ctx.lineWidth = 2.2;
+                if (i === 1) ctx.setLineDash([5, 4]);
+                ctx.beginPath(); ctx.moveTo(lx, ly + i * 20); ctx.lineTo(lx + 18, ly + i * 20); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = colors[i]; ctx.beginPath(); ctx.arc(lx + 9, ly + i * 20, 3.5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#222'; ctx.textAlign = 'left'; ctx.font = 'bold 12px "Source Code Pro",monospace';
+                ctx.fillText(lbl, lx + 26, ly + 5 + i * 20);
+            });
+        }
+
+        ctx.restore();
+    }
+
+    // Initial draw
+    redraw();
+
+    // Zoom and pan event listeners
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomSpeed = 0.1;
+        zoom = Math.max(1, Math.min(10, zoom + (e.deltaY > 0 ? -zoomSpeed : zoomSpeed)));
+        redraw();
+    }, { passive: false });
+
+    let isDragging = false, dragStart = { x: 0, y: 0 };
+    
+    canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragStart = { x: e.clientX, y: e.clientY };
     });
 
-    // Tick labels — crisp at HiDPI
-    ctx.fillStyle = '#222';
-    ctx.font = 'bold 12px "Source Code Pro"';
-    ctx.textAlign = 'center';
-    for (let i = 0; i <= NX; i++) {
-        const v = b.mnLo + (b.mxLo - b.mnLo) / NX * i;
-        ctx.fillText(v.toFixed(3), P.l + PW / NX * i, P.t + PH + 18);
-    }
-    ctx.textAlign = 'right';
-    for (let i = 0; i <= NY; i++) {
-        const v = b.mnLa + (b.mxLa - b.mnLa) / NY * (NY - i);
-        ctx.fillText(v.toFixed(3), P.l - 10, P.t + PH / NY * i + 5);
-    }
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = (e.clientX - dragStart.x) / zoom;
+        const dy = (e.clientY - dragStart.y) / zoom;
+        panX -= dx;
+        panY -= dy;
+        dragStart = { x: e.clientX, y: e.clientY };
+        redraw();
+    });
 
-    // Axis labels
-    ctx.fillStyle = '#222';
-    ctx.font = 'bold 13px "Source Code Pro",monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('Longitude', P.l + PW / 2, H - 6);
-    ctx.save(); ctx.translate(10, P.t + PH / 2); ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Latitude', 0, 0); ctx.restore();
-
-    // Title
-    ctx.fillStyle = '#1a1916';
-    ctx.font = '700 15px "EB Garamond",Georgia,serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(title, P.l + PW / 2, 28);
-
-    // Legend
-    if (tracks.length > 1) {
-        const lx = P.l + PW - 160, ly = P.t + 8;
-        ['Source', 'Test'].forEach((lbl, i) => {
-            ctx.strokeStyle = colors[i]; ctx.lineWidth = 2.2;
-            if (i === 1) ctx.setLineDash([5, 4]);  // Dashed for test
-            ctx.beginPath(); ctx.moveTo(lx, ly + i * 20); ctx.lineTo(lx + 18, ly + i * 20); ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.fillStyle = colors[i]; ctx.beginPath(); ctx.arc(lx + 9, ly + i * 20, 3.5, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#222'; ctx.textAlign = 'left'; ctx.font = 'bold 12px "Source Code Pro",monospace';
-            ctx.fillText(lbl, lx + 26, ly + 5 + i * 20);
-        });
-    }
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
 }
 
 // ── 3D plot — centered ────────────────────────────
@@ -320,6 +374,31 @@ function plot3D(wrap, S, T) {
         const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...s), new THREE.Vector3(...e)]);
         scene.add(new THREE.Line(g, am));
     });
+
+    // Add axis labels (X, Y, Z)
+    function createAxisLabel(text, position, color) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128; canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = color;
+        ctx.font = 'bold 60px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 64, 64);
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.position.set(...position);
+        sprite.scale.set(0.3, 0.3, 1);
+        scene.add(sprite);
+    }
+    createAxisLabel('X', [1.5, -0.5, 0], '#c0530a');
+    createAxisLabel('Y', [-1.3, 1.2, 0], '#1f6fa8');
+    createAxisLabel('Z', [-1.3, -0.5, 1.5], '#888888');
+    createAxisLabel('-X', [-1.5, -0.5, 0], '#c0530a');
+    createAxisLabel('-Y', [-1.3, -1.2, 0], '#1f6fa8');
+    createAxisLabel('-Z', [-1.3, -0.5, -1.5], '#888888');
+
     scene.add(new THREE.AmbientLight(0xffffff, 1));
 
     let rotY = 0.4, rotX = 0.3, drag = false, prev = { x: 0, y: 0 };
@@ -411,11 +490,11 @@ function run() {
     <div class="figs-row">
       <div class="fig-card">
         <div class="canvas-wrap" id="${swid}"><canvas id="${sid}"></canvas></div>
-        <div class="fig-cap">Source Trajectory</div>
+        <div class="fig-cap">Given Trajectory</div>
       </div>
       <div class="fig-card">
         <div class="canvas-wrap" id="${twid}"><canvas id="${tid}"></canvas></div>
-        <div class="fig-cap">Test Trajectory</div>
+        <div class="fig-cap">Monitored Trajectory</div>
       </div>
     </div>`;
     ac.appendChild(introDiv);
@@ -455,14 +534,14 @@ function run() {
     requestAnimationFrame(() => {
         // Plot source and test once
         const sid = `s2d_intro`, tid = `t2d_intro`;
-        plot2D(document.getElementById(sid), [S], [C_SRC], 'Source Trajectory', b, 270);
-        plot2D(document.getElementById(tid), [T], [C_TST], 'Test Trajectory', b, 270);
+        plot2D(document.getElementById(sid), [S], [C_SRC], '', b, 270);
+        plot2D(document.getElementById(tid), [T], [C_TST], '', b, 270);
         
         // Plot comparison and 3D for each algorithm
         results.forEach((r, i) => {
             const cid = `c2d_${i}`;
             const cwid = `cw_${i}`, dwid = `dw_${i}`;
-            plot2D(document.getElementById(cid), [S, T], [C_SRC, C_TST], `Trajectory Comparison — ${ALGOS[i].name}`, b, 320);
+            plot2D(document.getElementById(cid), [S, T], [C_SRC, C_TST], ``, b, 320);
             plot3D(document.getElementById(dwid), S, T);
         });
         document.getElementById('overlay').classList.remove('on');
