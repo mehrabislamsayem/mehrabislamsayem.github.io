@@ -454,15 +454,20 @@ function run() {
         { ...algoRL(S, T) },
     ];
     results.forEach(r => r.sim = simScore(r.ae, r.me));
-    results.forEach(r => r.sim = Math.max(0, Math.min(1, r.sim + (Math.random() - 0.5) * 0.2)));
-    results[4].sim = Math.min(1, 1.1); 
-    const sorted = [...results].sort((a, z) => z.sim - a.sim);
+    results.forEach(r => r.sim = Math.max(0, Math.min(1, r.sim)));
+    
+    // Calculate accuracy based on similarity score
+    results.forEach(r => r.accuracy = r.sim * 100);
+    
+    // Sort by accuracy for ranking
+    const sorted = [...results].sort((a, z) => z.accuracy - a.accuracy);
 
     // Summary table
     const tbody = document.getElementById('tblBody');
     tbody.innerHTML = results.map((r, i) => {
         const rank = sorted.findIndex(x => x === r) + 1;
         const pct = (r.sim * 100).toFixed(2);
+        const accuracy = r.accuracy.toFixed(2);
         const bw = Math.round(r.sim * 70);
         return `<tr>
       <td style="color:var(--text-dim);font-size:11px">${ALGOS[i].num}</td>
@@ -470,6 +475,7 @@ function run() {
       <td>${r.ae.toFixed(6)}</td>
       <td>${r.me.toFixed(6)}</td>
       <td><div class="sim-row"><div class="sbar-bg"><div class="sbar-fill" style="width:${bw}px"></div></div><span>${pct}%</span></div></td>
+      <td>${accuracy}%</td>
       <td><span class="badge ${rank === 1 ? 'top' : ''}">${rank === 1 ? '★ BEST' : '#' + rank}</span></td>
     </tr>`;
     }).join('');
