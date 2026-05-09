@@ -158,16 +158,18 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
     const centerX = P.l + PW / 2;
     const centerY = P.t + PH / 2;
 
+    // Constrain pan to bounds
+    function constrainPan() {
+        const maxPanX = (PW * (zoom - 1)) / 2;
+        const maxPanY = (PH * (zoom - 1)) / 2;
+        panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
+        panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+    }
+
     function redraw() {
         ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
 
-        // Save context and apply zoom/pan transformation
-        ctx.save();
-        ctx.translate(centerX + panX, centerY + panY);
-        ctx.scale(zoom, zoom);
-        ctx.translate(-centerX, -centerY);
-
-        // Plot area
+        // Plot area background
         ctx.fillStyle = '#fdfdfc'; ctx.fillRect(P.l, P.t, PW, PH);
 
         // Grid
@@ -179,6 +181,16 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
         // Axes border
         ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
         ctx.strokeRect(P.l, P.t, PW, PH);
+
+        // Save context and apply zoom/pan transformation only inside plot area
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(P.l, P.t, PW, PH);
+        ctx.clip();
+        
+        ctx.translate(P.l + PW / 2 + panX, P.t + PH / 2 + panY);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-(P.l + PW / 2), -(P.t + PH / 2));
 
         // Map function (regular, no zoom)
         const mp = (p) => [P.l + (p.lon - b.mnLo) / (b.mxLo - b.mnLo) * PW, P.t + (1 - (p.lat - b.mnLa) / (b.mxLa - b.mnLa)) * PH];
@@ -215,6 +227,8 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.stroke();
         });
 
+        ctx.restore();
+
         // Tick labels — crisp at HiDPI
         ctx.fillStyle = '#222';
         ctx.font = 'bold 12px "Source Code Pro"';
@@ -237,18 +251,6 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
         ctx.save(); ctx.translate(10, P.t + PH / 2); ctx.rotate(-Math.PI / 2);
         ctx.fillText('Latitude', 0, 0); ctx.restore();
 
-        // Axis end labels (X, -X, Y, -Y)
-        // ctx.fillStyle = '#c0530a';
-        // ctx.font = 'bold 11px "Source Code Pro",monospace';
-        // ctx.textAlign = 'right';
-        // ctx.fillText('X', P.l + PW + 6, P.t + PH + 5);.
-        // ctx.textAlign = 'left';
-        // ctx.fillText('-X', P.l - 6, P.t + PH + 5);
-        // ctx.fillStyle = '#1f6fa8';
-        // ctx.textAlign = 'center';
-        // ctx.fillText('Y', P.l - 18, P.t - 2);
-        // ctx.fillText('-Y', P.l - 18, P.t + PH + 12);
-
         // Title
         ctx.fillStyle = '#1a1916';
         ctx.font = '700 15px "EB Garamond",Georgia,serif';
@@ -258,7 +260,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
         // Legend
         if (tracks.length > 1) {
             const lx = P.l + PW - 160, ly = P.t + 8;
-            ['Source', 'Test'].forEach((lbl, i) => {
+            ['Given Trajectory', 'Monitored Trajectory'].forEach((lbl, i) => {
                 ctx.strokeStyle = colors[i]; ctx.lineWidth = 2.2;
                 if (i === 1) ctx.setLineDash([5, 4]);
                 ctx.beginPath(); ctx.moveTo(lx, ly + i * 20); ctx.lineTo(lx + 18, ly + i * 20); ctx.stroke();
@@ -268,8 +270,6 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
                 ctx.fillText(lbl, lx + 26, ly + 5 + i * 20);
             });
         }
-
-        ctx.restore();
     }
 
     // Initial draw
@@ -280,6 +280,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
         e.preventDefault();
         const zoomSpeed = 0.1;
         zoom = Math.max(1, Math.min(10, zoom + (e.deltaY > 0 ? -zoomSpeed : zoomSpeed)));
+        constrainPan();
         redraw();
     }, { passive: false });
 
@@ -296,6 +297,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
         const dy = (e.clientY - dragStart.y) / zoom;
         panX -= dx;
         panY -= dy;
+        constrainPan();
         dragStart = { x: e.clientX, y: e.clientY };
         redraw();
     });
@@ -326,8 +328,8 @@ function plot3D(wrap, S, T) {
     const legend = document.createElement('div');
     legend.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(255,255,255,0.95);border:1px solid #ddd;border-radius:4px;padding:8px 12px;font-family:"Source Code Pro",monospace;font-size:12px;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.1)';
     const legItems = [
-        { label: 'Source', color: '#1f6fa8' },
-        { label: 'Test', color: '#c0530a' }
+        { label: 'Given Trajectory', color: '#1f6fa8' },
+        { label: 'Monitored Trajectory', color: '#c0530a' }
     ];
     legend.innerHTML = legItems.map((item, i) => `
         <div style="display:flex;align-items:center;margin-bottom:${i === 0 ? '6px' : '0'}">
@@ -378,29 +380,26 @@ function plot3D(wrap, S, T) {
         scene.add(new THREE.Line(g, am));
     });
 
-    // Add axis labels (X, Y, Z)
+    // Add axis labels (Longitude, Latitude, Altitude)
     function createAxisLabel(text, position, color) {
         const canvas = document.createElement('canvas');
-        canvas.width = 128; canvas.height = 128;
+        canvas.width = 256; canvas.height = 128;
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = color;
-        ctx.font = 'bold 60px Arial';
+        ctx.font = 'bold 48px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, 64, 64);
+        ctx.fillText(text, 128, 64);
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
         const sprite = new THREE.Sprite(spriteMaterial);
         sprite.position.set(...position);
-        sprite.scale.set(0.3, 0.3, 1);
+        sprite.scale.set(0.6, 0.3, 1);
         scene.add(sprite);
     }
-    createAxisLabel('X', [1.5, -0.5, 0], '#c0530a');
-    createAxisLabel('Y', [-1.3, 1.2, 0], '#1f6fa8');
-    createAxisLabel('Z', [-1.3, -0.5, 1.5], '#888888');
-    createAxisLabel('-X', [-1.5, -0.5, 0], '#c0530a');
-    createAxisLabel('-Y', [-1.3, -1.2, 0], '#1f6fa8');
-    createAxisLabel('-Z', [-1.3, -0.5, -1.5], '#888888');
+    createAxisLabel('Longitude', [1.5, -0.5, 0], '#c0530a');
+    createAxisLabel('Latitude', [-1.3, 1.2, 0], '#1f6fa8');
+    createAxisLabel('Altitude', [-1.3, -0.5, 1.5], '#888888');
 
     scene.add(new THREE.AmbientLight(0xffffff, 1));
 
@@ -544,7 +543,7 @@ function run() {
       <div class="figs-row">
         <div class="fig-card">
           <div class="canvas-wrap" id="${cwid}" style="height:320px"><canvas id="${cid}"></canvas></div>
-          <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Source (blue), Test (orange). Similarity = ${pct}%</div>
+          <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Given Trajectory (blue), Monitored Trajectory (orange). Similarity = ${pct}%</div>
         </div>
         <div class="fig-card">
           <div class="canvas-3d-wrap" id="${dwid}" style="height:320px"></div>
