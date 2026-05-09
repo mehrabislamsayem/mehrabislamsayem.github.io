@@ -86,15 +86,30 @@ function algoLCSS(S, T) {
     let s = 0; for (let i = 1; i < Math.min(n, 40); i++) s += ed(S[i], S[i - 1]);
     const eps = s / Math.min(n - 1, 39) * 2;
     const L = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
-    let mx = 0;
     for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) {
         const d = ed(S[i - 1], T[j - 1]);
-        if (d <= eps) { L[i][j] = L[i - 1][j - 1] + 1; if (d > mx) mx = d; }
+        if (d <= eps) { L[i][j] = L[i - 1][j - 1] + 1; }
         else L[i][j] = Math.max(L[i - 1][j], L[i][j - 1]);
     }
     const lcss = L[n][m];
-    const ae = 1 - lcss / Math.min(n, m);
-    return { ae, me: ae === 0 ? eps : (mx || eps) };
+    const matchRatio = lcss / Math.min(n, m);
+    
+    // Sample pairwise distances to avoid stack overflow
+    const sampleSize = Math.min(n * m, 1000);
+    let sumDist = 0, maxDist = 0, count = 0;
+    const step = Math.max(1, Math.floor((n * m) / sampleSize));
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < m; j++) {
+            if ((i * m + j) % step === 0) {
+                const d = ed(S[i], T[j]);
+                sumDist += d;
+                if (d > maxDist) maxDist = d;
+                count++;
+            }
+        }
+    }
+    const ae = count > 0 ? (sumDist / count) * (1 - matchRatio * 0.8) : eps;
+    return { ae, me: Math.max(maxDist, eps) };
 }
 
 function algoRL(S, T) {
@@ -473,7 +488,7 @@ function run() {
     const tbody = document.getElementById('tblBody');
     tbody.innerHTML = results.map((r, i) => {
         const rank = sorted.findIndex(x => x === r) + 1;
-        const pct = (r.sim * 100).toFixed(2);
+        const pct = r.sim.toFixed(3);
         const accuracy = r.accuracy.toFixed(2);
         const bw = Math.round(r.sim * 70);
         return `<tr>
@@ -487,8 +502,7 @@ function run() {
       <div class="sbar-fill" style="width:${bw}px">
       </div>
       </div>-->
-      <span>${pct}%
-      </span>
+      <span>${pct}</span>
       </div> 
       </td>
       <td>${accuracy}%</td>
@@ -522,7 +536,7 @@ function run() {
     ac.appendChild(introDiv);
 
     results.forEach((r, i) => {
-        const pct = (r.sim * 100).toFixed(2);
+        const pct = r.sim.toFixed(3);
         const sc = r.sim >= 0.75 ? 'good' : r.sim >= 0.45 ? 'mid' : 'low';
         const cid = `c2d_${i}`;
         const cwid = `cw_${i}`, dwid = `dw_${i}`;
@@ -537,13 +551,13 @@ function run() {
       <div class="metrics-strip">
         <div class="met"><div class="met-label">Alignment Error</div><div class="met-val">${r.ae.toFixed(6)}</div></div>
         <div class="met"><div class="met-label">Max Error</div><div class="met-val">${r.me.toFixed(6)}</div></div>
-        <div class="met"><div class="met-label">Similarity Score</div><div class="met-val ${sc}">${pct}%</div></div>
+        <div class="met"><div class="met-label">Similarity Score</div><div class="met-val ${sc}">${pct}</div></div>
         <div class="met"><div class="met-label">Sim = 1 &minus; Err/Max</div><div class="met-val" style="font-size:12px">1 &minus; ${r.ae.toFixed(4)} / ${r.me.toFixed(4)}</div></div>
       </div>
       <div class="figs-row">
         <div class="fig-card">
           <div class="canvas-wrap" id="${cwid}" style="height:320px"><canvas id="${cid}"></canvas></div>
-          <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Given Trajectory (blue), Monitored Trajectory (orange). Similarity = ${pct}%</div>
+          <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Given Trajectory (blue), Monitored Trajectory (orange). Similarity = ${pct}</div>
         </div>
         <div class="fig-card">
           <div class="canvas-3d-wrap" id="${dwid}" style="height:320px"></div>
