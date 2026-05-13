@@ -244,17 +244,36 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
 
         ctx.restore();
 
-        // Tick labels — crisp at HiDPI
+        // Tick labels — crisp at HiDPI, adapt to zoom and pan
+        // Calculate visible bounds based on zoom and pan
+        const zoomFactor = 1 / zoom;
+        const loRange = b.mxLo - b.mnLo;
+        const laRange = b.mxLa - b.mnLa;
+        
+        // Center of visible area considering pan (pan is inverted in screen space)
+        const loCenterOffset = -panX / (zoom * PW) * loRange;
+        const laCenterOffset = panY / (zoom * PH) * laRange;
+        
+        // Visible coordinate ranges
+        const loCenter = b.mnLo + loRange * 0.5 + loCenterOffset;
+        const laCenter = b.mnLa + laRange * 0.5 + laCenterOffset;
+        
+        const loMin_visible = loCenter - (loRange * 0.5 * zoomFactor);
+        const loMax_visible = loCenter + (loRange * 0.5 * zoomFactor);
+        
+        const latMin_visible = laCenter - (laRange * 0.5 * zoomFactor);
+        const latMax_visible = laCenter + (laRange * 0.5 * zoomFactor);
+        
         ctx.fillStyle = '#222';
         ctx.font = 'bold 12px "Source Code Pro"';
         ctx.textAlign = 'center';
         for (let i = 0; i <= NX; i++) {
-            const v = b.mnLo + (b.mxLo - b.mnLo) / NX * i;
+            const v = loMin_visible + (loMax_visible - loMin_visible) / NX * i;
             ctx.fillText(v.toFixed(3), P.l + PW / NX * i, P.t + PH + 18);
         }
         ctx.textAlign = 'right';
         for (let i = 0; i <= NY; i++) {
-            const v = b.mnLa + (b.mxLa - b.mnLa) / NY * (NY - i);
+            const v = latMin_visible + (latMax_visible - latMin_visible) / NY * (NY - i);
             ctx.fillText(v.toFixed(3), P.l - 10, P.t + PH / NY * i + 5);
         }
 
@@ -395,7 +414,7 @@ function plot3D(wrap, S, T) {
         scene.add(new THREE.Line(g, am));
     });
 
-    // Add axis labels (Longitude, Latitude, Altitude)
+    // Add axis labels and tick values (Longitude, Latitude, Altitude)
     function createAxisLabel(text, position, color) {
         const canvas = document.createElement('canvas');
         canvas.width = 256; canvas.height = 128;
@@ -412,6 +431,48 @@ function plot3D(wrap, S, T) {
         sprite.scale.set(0.6, 0.3, 1);
         scene.add(sprite);
     }
+
+    // Create tick value labels on axes
+    function createTickLabel(text, position, scale = 0.35) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#555';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 64, 32);
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.position.set(...position);
+        sprite.scale.set(scale, scale * 0.5, 1);
+        scene.add(sprite);
+    }
+
+    // Add tick values for Longitude axis (X-axis from -1.3 to 1.3)
+    const loMin = b.mnLo, loMax = b.mxLo;
+    for (let i = 0; i <= 3; i++) {
+        const v = loMin + (loMax - loMin) / 3 * i;
+        const x = -1.3 + (i / 3) * 2.6;
+        createTickLabel(v.toFixed(2), [x, -0.7, 0], 0.25);
+    }
+
+    // Add tick values for Latitude axis (Y-axis from -0.5 to 0.9)
+    const laMin = b.mnLa, laMax = b.mxLa;
+    for (let i = 0; i <= 3; i++) {
+        const v = laMin + (laMax - laMin) / 3 * i;
+        const y = -0.5 + (i / 3) * 1.4;
+        createTickLabel(v.toFixed(2), [-1.6, y, 0], 0.25);
+    }
+
+    // Add tick values for Altitude/Time axis (Z-axis from 0 to 1.3)
+    for (let i = 0; i <= 3; i++) {
+        const v = (i / 3).toFixed(2);
+        const z = (i / 3) * 1.3;
+        createTickLabel(v, [-1.6, -0.7, z], 0.25);
+    }
+
     createAxisLabel('Longitude', [1.5, -0.5, 0], '#c0530a');
     createAxisLabel('Latitude', [-1.3, 1.2, 0], '#1f6fa8');
     createAxisLabel('Altitude', [-1.3, -0.5, 1.5], '#888888');
@@ -486,7 +547,11 @@ function run() {
 
     // Summary table
     const tbody = document.getElementById('tblBody');
-    tbody.innerHTML = results.map((r, i) => {
+    // Create array of results with their original indices, then sort by accuracy (highest first)
+    const resultsWithIndex = results.map((r, i) => ({ result: r, index: i }));
+    resultsWithIndex.sort((a, b) => b.result.accuracy - a.result.accuracy);
+    
+    tbody.innerHTML = resultsWithIndex.map(({ result: r, index: i }) => {
         const rank = sorted.findIndex(x => x === r) + 1;
         const pct = r.sim.toFixed(3);
         const accuracy = r.accuracy.toFixed(2);
