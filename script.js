@@ -671,7 +671,7 @@ function run() {
         <div class="met"><div class="met-label">Similarity Score</div><div class="met-val ${sc}">${pct}</div></div>
         <div class="met"><div class="met-label">Sim = 1 &minus; Err/Max</div><div class="met-val" style="font-size:12px">1 &minus; ${r.ae.toFixed(4)} / ${r.me.toFixed(4)}</div></div>
       </div>
-      <div class="figs-row" style="grid-template-columns: 1fr; justify-items: center; max-width: 600px; margin: 0 auto;">
+      <div class="figs-row" style="grid-template-columns: 1fr; justify-items: center; max-width: 525px; margin: 0 auto;">
         <div class="fig-card">
           <div class="canvas-wrap" id="${cwid}" style="height:320px"><canvas id="${cid}"></canvas></div>
           <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Given Trajectory (blue), Monitored Trajectory (orange). Similarity = ${pct}</div>
