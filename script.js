@@ -3,10 +3,31 @@ function parseGPX(txt) {
     const xml = new DOMParser().parseFromString(txt, 'application/xml');
     const nodes = xml.querySelectorAll('trkpt,wpt,rtept');
     const pts = [];
-    nodes.forEach(n => {
+    let startTime = null;
+    
+    nodes.forEach((n, idx) => {
         const lat = parseFloat(n.getAttribute('lat'));
         const lon = parseFloat(n.getAttribute('lon'));
-        if (!isNaN(lat) && !isNaN(lon)) pts.push({ lat, lon });
+        if (!isNaN(lat) && !isNaN(lon)) {
+            const eleNode = n.querySelector('ele');
+            const timeNode = n.querySelector('time');
+            
+            let ele = 0;
+            if (eleNode && eleNode.textContent) {
+                ele = parseFloat(eleNode.textContent);
+                if (isNaN(ele)) ele = 0;
+            }
+            
+            let time = 0;
+            if (timeNode && timeNode.textContent) {
+                const timeStr = timeNode.textContent;
+                const pointTime = new Date(timeStr).getTime();
+                if (idx === 0) startTime = pointTime;
+                time = (pointTime - startTime) / 1000; // time in seconds from start
+            }
+            
+            pts.push({ lat, lon, ele, time });
+        }
     });
     return pts;
 }
@@ -146,6 +167,14 @@ const simScore = (ae, me) => me === 0 ? 1 : Math.max(0, Math.min(1, 1 - ae / me)
 // Helper function to generate random number between min and max
 const randomInRange = (min, max) => Math.random() * (max - min) + min;
 
+// Helper function to format seconds into HH:MM:SS
+const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
 function setupHiDPI(canvas, cssW, cssH) {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(cssW * dpr);
@@ -165,7 +194,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
     const ctx = setupHiDPI(canvas, cssW, cssH);
     const W = cssW, H = cssH;
 
-    const P = { t: 42, r: 24, b: 50, l: 68 };
+    const P = { t: 42, r: 68, b: 50, l: 68 };
     const PW = W - P.l - P.r, PH = H - P.t - P.b;
 
     // Zoom and pan state
@@ -342,7 +371,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
 }
 
 // ── 3D plot — centered ────────────────────────────
-function plot3D(wrap, S, T) {
+function plot3D(wrap, S, T, mode = 'time') {
     // Remove any old canvas
     while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
 
@@ -395,15 +424,31 @@ function plot3D(wrap, S, T) {
     const cx = (b.mxLo + b.mnLo) / 2, cy = (b.mxLa + b.mnLa) / 2;
     const sc = 1.8 / Math.max(b.mxLo - b.mnLo, b.mxLa - b.mnLa, 0.0001);
 
-    function line3(pts, color, tLen) {
+    // Calculate Z bounds based on mode
+    let zMin = Infinity, zMax = -Infinity;
+    const allZ = [];
+    [...S, ...T].forEach(p => {
+        const z = mode === 'elevation' ? (p.ele || 0) : (p.time || 0);
+        allZ.push(z);
+        if (z < zMin) zMin = z;
+        if (z > zMax) zMax = z;
+    });
+    const zRange = zMax - zMin || 1;
+    const zScale = 1.3 / zRange;
+
+    function line3(pts, color, mode) {
         const pos = [];
-        pts.forEach((p, i) => pos.push((p.lon - cx) * sc, (p.lat - cy) * sc, i / pts.length * tLen));
+        pts.forEach((p, i) => {
+            const z = mode === 'elevation' ? (p.ele || 0) : (p.time || 0);
+            const zNorm = (z - zMin) * zScale;
+            pos.push((p.lon - cx) * sc, (p.lat - cy) * sc, zNorm);
+        });
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
         return new THREE.Line(geo, new THREE.LineBasicMaterial({ color }));
     }
-    scene.add(line3(S, 0x1f6fa8, 1.2));
-    scene.add(line3(T, 0xc0530a, 1.2));
+    scene.add(line3(S, 0x1f6fa8, mode));
+    scene.add(line3(T, 0xc0530a, mode));
 
     const gh = new THREE.GridHelper(3, 12, 0xcccccc, 0xe0e0e0);
     gh.position.y = -0.5; scene.add(gh);
@@ -414,7 +459,7 @@ function plot3D(wrap, S, T) {
         scene.add(new THREE.Line(g, am));
     });
 
-    // Add axis labels and tick values (Longitude, Latitude, Altitude)
+    // Add axis labels and tick values
     function createAxisLabel(text, position, color) {
         const canvas = document.createElement('canvas');
         canvas.width = 256; canvas.height = 128;
@@ -466,16 +511,23 @@ function plot3D(wrap, S, T) {
         createTickLabel(v.toFixed(2), [-1.6, y, 0], 0.25);
     }
 
-    // Add tick values for Altitude/Time axis (Z-axis from 0 to 1.3)
+    // Add tick values for Z axis (Elevation or Time)
     for (let i = 0; i <= 3; i++) {
-        const v = (i / 3).toFixed(2);
+        let v;
+        if (mode === 'elevation') {
+            v = (zMin + (zMax - zMin) / 3 * i).toFixed(1);
+        } else {
+            v = formatTime(zMin + (zMax - zMin) / 3 * i);
+        }
         const z = (i / 3) * 1.3;
         createTickLabel(v, [-1.6, -0.7, z], 0.25);
     }
 
+    const zAxisLabel = mode === 'elevation' ? 'Altitude (m)' : 'Time (s)';
+    const zLabelColor = mode === 'elevation' ? '#d4a574' : '#888888';
     createAxisLabel('Longitude', [1.5, -0.5, 0], '#c0530a');
     createAxisLabel('Latitude', [-1.3, 1.2, 0], '#1f6fa8');
-    createAxisLabel('Altitude', [-1.3, -0.5, 1.5], '#888888');
+    createAxisLabel(zAxisLabel, [-1.3, -0.5, 1.5], zLabelColor);
 
     scene.add(new THREE.AmbientLight(0xffffff, 1));
 
@@ -604,7 +656,7 @@ function run() {
         const pct = r.sim.toFixed(3);
         const sc = r.sim >= 0.75 ? 'good' : r.sim >= 0.45 ? 'mid' : 'low';
         const cid = `c2d_${i}`;
-        const cwid = `cw_${i}`, dwid = `dw_${i}`;
+        const cwid = `cw_${i}`, dw_ele = `dw_ele_${i}`, dw_time = `dw_time_${i}`;
         const div = document.createElement('div');
         div.className = 'algo-block';
         div.innerHTML = `
@@ -619,14 +671,20 @@ function run() {
         <div class="met"><div class="met-label">Similarity Score</div><div class="met-val ${sc}">${pct}</div></div>
         <div class="met"><div class="met-label">Sim = 1 &minus; Err/Max</div><div class="met-val" style="font-size:12px">1 &minus; ${r.ae.toFixed(4)} / ${r.me.toFixed(4)}</div></div>
       </div>
-      <div class="figs-row">
+      <div class="figs-row" style="grid-template-columns: 1fr; justify-items: center; max-width: 600px; margin: 0 auto;">
         <div class="fig-card">
           <div class="canvas-wrap" id="${cwid}" style="height:320px"><canvas id="${cid}"></canvas></div>
           <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Given Trajectory (blue), Monitored Trajectory (orange). Similarity = ${pct}</div>
         </div>
+      </div>
+      <div class="figs-row">
         <div class="fig-card">
-          <div class="canvas-3d-wrap" id="${dwid}" style="height:320px"></div>
-          <div class="fig-cap">Fig. ${i + 1}b. 3D Spatio-Temporal View — ${ALGOS[i].name}. Z-axis represents time index. Drag to rotate, scroll to zoom.</div>
+          <div class="canvas-3d-wrap" id="${dw_ele}" style="height:320px"></div>
+          <div class="fig-cap">Fig. ${i + 1}b. 3D View (Elevation) — ${ALGOS[i].name}. Z-axis represents Altitude (m). Drag to rotate, scroll to zoom.</div>
+        </div>
+        <div class="fig-card">
+          <div class="canvas-3d-wrap" id="${dw_time}" style="height:320px"></div>
+          <div class="fig-cap">Fig. ${i + 1}c. 3D View (Time) — ${ALGOS[i].name}. Z-axis represents Time (seconds). Drag to rotate, scroll to zoom.</div>
         </div>
       </div>`;
         ac.appendChild(div);
@@ -641,9 +699,10 @@ function run() {
         // Plot comparison and 3D for each algorithm
         results.forEach((r, i) => {
             const cid = `c2d_${i}`;
-            const cwid = `cw_${i}`, dwid = `dw_${i}`;
+            const cwid = `cw_${i}`, dw_ele = `dw_ele_${i}`, dw_time = `dw_time_${i}`;
             plot2D(document.getElementById(cid), [S, T], [C_SRC, C_TST], ``, b, 320);
-            plot3D(document.getElementById(dwid), S, T);
+            plot3D(document.getElementById(dw_ele), S, T, 'elevation');
+            plot3D(document.getElementById(dw_time), S, T, 'time');
         });
         document.getElementById('overlay').classList.remove('on');
         document.getElementById('results').classList.add('visible');
