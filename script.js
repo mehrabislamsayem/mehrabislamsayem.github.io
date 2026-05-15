@@ -845,13 +845,13 @@ function run() {
         <div class="met"><div class="met-label">Similarity Score</div><div class="met-val ${sc}">${pct}</div></div>
         <div class="met"><div class="met-label">Sim = 1 &minus; Err/Max</div><div class="met-val" style="font-size:12px">1 &minus; ${r.ae.toFixed(4)} / ${r.me.toFixed(4)}</div></div>
       </div>
-      <div class="figs-row" style="grid-template-columns: 1fr; justify-items: center; max-width: 600px; margin: 0 auto;">
+      <div class="figs-row" style="grid-template-columns: 1fr; justify-items: center; max-width: 600px; margin: 0 auto 10px auto;">
         <div class="fig-card">
           <div class="canvas-wrap" id="${cwid}" style="height:500px"><canvas id="${cid}"></canvas></div>
           <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Given Trajectory (blue), Monitored Trajectory (orange). Similarity = ${pct}</div>
         </div>
       </div>
-      <div class="figs-row">
+      <div class="figs-row" style="margin-top: 5px;">
         <div class="fig-card">
           <div class="canvas-3d-wrap" id="${dw_ele}" style="height:320px"></div>
           <div class="fig-cap">Fig. ${i + 1}b. 3D View (Elevation) — ${ALGOS[i].name}. Z-axis represents Altitude (m). Drag to rotate, scroll to zoom.</div>
