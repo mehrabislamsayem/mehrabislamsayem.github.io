@@ -191,6 +191,57 @@ const C_SRC = '#1f6fa8', C_TST = '#c0530a';
 
 function plot2D(canvas, tracks, colors, title, b, cssH) {
     const cssW = canvas.parentElement.clientWidth || 500;
+    
+    // Create toolbar container
+    const toolbarDiv = document.createElement('div');
+    toolbarDiv.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;align-items:center;padding:8px;background:#f5f5f5;border-radius:4px;border:1px solid #ddd';
+    
+    const btnStyle = 'padding:6px 12px;font-size:12px;font-family:"Source Code Pro",monospace;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#fff;color:#333;transition:all 0.2s';
+    const btnHoverStyle = 'background:#e8e8e8;border-color:#999';
+    
+    // Zoom in button
+    const zoomInBtn = document.createElement('button');
+    zoomInBtn.textContent = '+ Zoom In';
+    zoomInBtn.style.cssText = btnStyle;
+    zoomInBtn.onmouseover = () => zoomInBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
+    zoomInBtn.onmouseout = () => zoomInBtn.style.cssText = btnStyle;
+    
+    // Zoom out button
+    const zoomOutBtn = document.createElement('button');
+    zoomOutBtn.textContent = '− Zoom Out';
+    zoomOutBtn.style.cssText = btnStyle;
+    zoomOutBtn.onmouseover = () => zoomOutBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
+    zoomOutBtn.onmouseout = () => zoomOutBtn.style.cssText = btnStyle;
+    
+    // Reset view button
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = '⟲ Reset View';
+    resetBtn.style.cssText = btnStyle;
+    resetBtn.onmouseover = () => resetBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
+    resetBtn.onmouseout = () => resetBtn.style.cssText = btnStyle;
+    
+    // Box select toggle button
+    const boxSelectBtn = document.createElement('button');
+    boxSelectBtn.textContent = '▭ Box Select (Shift)';
+    boxSelectBtn.style.cssText = btnStyle;
+    boxSelectBtn.onmouseover = () => boxSelectBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
+    boxSelectBtn.onmouseout = () => {
+        if (!boxSelectMode) boxSelectBtn.style.cssText = btnStyle;
+    };
+    
+    // Zoom level display
+    const zoomDisplay = document.createElement('span');
+    zoomDisplay.style.cssText = 'margin-left:auto;font-family:"Source Code Pro",monospace;font-size:12px;color:#666;padding:6px 8px;background:#fff;border-radius:3px;border:1px solid #ddd;min-width:80px;text-align:center';
+    
+    toolbarDiv.appendChild(zoomInBtn);
+    toolbarDiv.appendChild(zoomOutBtn);
+    toolbarDiv.appendChild(resetBtn);
+    toolbarDiv.appendChild(boxSelectBtn);
+    toolbarDiv.appendChild(zoomDisplay);
+    
+    // Insert toolbar before canvas
+    canvas.parentElement.insertBefore(toolbarDiv, canvas);
+    
     const ctx = setupHiDPI(canvas, cssW, cssH);
     const W = cssW, H = cssH;
 
@@ -198,9 +249,12 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
     const PW = W - P.l - P.r, PH = H - P.t - P.b;
 
     // Zoom and pan state
-    let zoom = 1, panX = 0, panY = 0;
+    let zoom = 1, panX = 0, panY = 0, boxSelectMode = false;
     const centerX = P.l + PW / 2;
     const centerY = P.t + PH / 2;
+    
+    // Box selection state
+    let isBoxSelecting = false, boxStart = { x: 0, y: 0 }, boxEnd = { x: 0, y: 0 };
 
     // Constrain pan to bounds
     function constrainPan() {
@@ -251,7 +305,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
             if (drawPts.length < 1) return;
 
             ctx.strokeStyle = colors[ci];
-            ctx.lineWidth = tracks.length > 1 ? 2.2 : 1.8;
+            ctx.lineWidth = (tracks.length > 1 ? 2.2 : 1.8) / zoom;
             ctx.lineJoin = 'round'; ctx.lineCap = 'round';
             if (tracks.length > 1 && ci === 1) {
                 ctx.setLineDash([5, 4]);
@@ -333,16 +387,66 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
                 ctx.fillText(lbl, lx + 26, ly + 5 + i * 20);
             });
         }
+        
+        // Draw selection box if active
+        if (isBoxSelecting && (boxStart.x !== boxEnd.x || boxStart.y !== boxEnd.y)) {
+            const x1 = Math.min(boxStart.x, boxEnd.x);
+            const y1 = Math.min(boxStart.y, boxEnd.y);
+            const w = Math.abs(boxEnd.x - boxStart.x);
+            const h = Math.abs(boxEnd.y - boxStart.y);
+            
+            ctx.fillStyle = 'rgba(31, 111, 168, 0.1)';
+            ctx.fillRect(x1, y1, w, h);
+            ctx.strokeStyle = '#1f6fa8';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x1, y1, w, h);
+        }
+        
+        // Update zoom display
+        zoomDisplay.textContent = `Zoom: ${zoom.toFixed(2)}x`;
     }
 
     // Initial draw
     redraw();
 
+    // Toolbar button listeners
+    zoomInBtn.addEventListener('click', () => {
+        zoom = Math.max(1, Math.min(50, zoom + 0.2));
+        constrainPan();
+        redraw();
+    });
+
+    zoomOutBtn.addEventListener('click', () => {
+        zoom = Math.max(1, Math.min(50, zoom - 0.2));
+        constrainPan();
+        redraw();
+    });
+
+    resetBtn.addEventListener('click', () => {
+        zoom = 1;
+        panX = 0;
+        panY = 0;
+        boxSelectMode = false;
+        isBoxSelecting = false;
+        boxSelectBtn.style.cssText = btnStyle;
+        redraw();
+    });
+
+    boxSelectBtn.addEventListener('click', () => {
+        boxSelectMode = !boxSelectMode;
+        if (boxSelectMode) {
+            boxSelectBtn.style.cssText = btnStyle + ';' + btnHoverStyle + ';background:#d4e9f7;border-color:#1f6fa8';
+        } else {
+            boxSelectBtn.style.cssText = btnStyle;
+        }
+        canvas.style.cursor = boxSelectMode ? 'crosshair' : 'grab';
+    });
+
     // Zoom and pan event listeners
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         const zoomSpeed = 0.1;
-        zoom = Math.max(1, Math.min(10, zoom + (e.deltaY > 0 ? -zoomSpeed : zoomSpeed)));
+        zoom = Math.max(1, Math.min(50, zoom + (e.deltaY > 0 ? -zoomSpeed : zoomSpeed)));
         constrainPan();
         redraw();
     }, { passive: false });
@@ -350,24 +454,94 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
     let isDragging = false, dragStart = { x: 0, y: 0 };
 
     canvas.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        dragStart = { x: e.clientX, y: e.clientY };
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Check if click is in plot area
+        if (x >= P.l && x <= P.l + PW && y >= P.t && y <= P.t + PH) {
+            if (boxSelectMode) {
+                isBoxSelecting = true;
+                boxStart = { x, y };
+                boxEnd = { x, y };
+            } else {
+                isDragging = true;
+                dragStart = { x: e.clientX, y: e.clientY };
+            }
+        }
     });
 
     document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const dx = (e.clientX - dragStart.x) / zoom;
-        const dy = (e.clientY - dragStart.y) / zoom;
-        panX -= dx;
-        panY -= dy;
-        constrainPan();
-        dragStart = { x: e.clientX, y: e.clientY };
-        redraw();
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        if (isBoxSelecting) {
+            boxEnd = { x, y };
+            redraw();
+        } else if (isDragging) {
+            const dx = (e.clientX - dragStart.x) / zoom;
+            const dy = (e.clientY - dragStart.y) / zoom;
+            panX -= dx;
+            panY -= dy;
+            constrainPan();
+            dragStart = { x: e.clientX, y: e.clientY };
+            redraw();
+        }
     });
 
-    document.addEventListener('mouseup', () => {
+    document.addEventListener('mouseup', (e) => {
+        if (isBoxSelecting && boxSelectMode) {
+            // Get box bounds in screen space
+            const x1 = Math.min(boxStart.x, boxEnd.x);
+            const y1 = Math.min(boxStart.y, boxEnd.y);
+            const x2 = Math.max(boxStart.x, boxEnd.x);
+            const y2 = Math.max(boxStart.y, boxEnd.y);
+            
+            const boxW = x2 - x1;
+            const boxH = y2 - y1;
+            
+            if (boxW > 5 && boxH > 5) {
+                // Invert the transformation to get actual normalized coordinates
+                // Screen position maps back to: nc = 0.5 + (screen - center - pan) / (zoom * range)
+                const normX1 = 0.5 + ((x1 - P.l - PW / 2 - panX) / (zoom * PW));
+                const normY1 = 0.5 + ((y1 - P.t - PH / 2 - panY) / (zoom * PH));
+                const normX2 = 0.5 + ((x2 - P.l - PW / 2 - panX) / (zoom * PW));
+                const normY2 = 0.5 + ((y2 - P.t - PH / 2 - panY) / (zoom * PH));
+                
+                // Clamp to plot bounds
+                const clampX1 = Math.max(0, Math.min(1, normX1));
+                const clampY1 = Math.max(0, Math.min(1, normY1));
+                const clampX2 = Math.max(0, Math.min(1, normX2));
+                const clampY2 = Math.max(0, Math.min(1, normY2));
+                
+                // Calculate new zoom to fit box
+                const zoomX = 1 / (clampX2 - clampX1);
+                const zoomY = 1 / (clampY2 - clampY1);
+                const newZoom = Math.min(zoomX, zoomY, 50);
+                
+                // Center of normalized box
+                const normCenterX = (clampX1 + clampX2) / 2;
+                const normCenterY = (clampY1 + clampY2) / 2;
+                
+                // Reset zoom and calculate pan for the new zoom level
+                // to center the selected region
+                panX = newZoom * (0.5 - normCenterX) * PW;
+                panY = newZoom * (0.5 - normCenterY) * PH;
+                zoom = newZoom;
+                constrainPan();
+            }
+            
+            isBoxSelecting = false;
+            boxStart = { x: 0, y: 0 };
+            boxEnd = { x: 0, y: 0 };
+            redraw();
+        }
         isDragging = false;
     });
+    
+    canvas.style.cursor = 'grab';
+    canvas.style.touchAction = 'none';
 }
 
 // ── 3D plot — centered ────────────────────────────
@@ -671,9 +845,9 @@ function run() {
         <div class="met"><div class="met-label">Similarity Score</div><div class="met-val ${sc}">${pct}</div></div>
         <div class="met"><div class="met-label">Sim = 1 &minus; Err/Max</div><div class="met-val" style="font-size:12px">1 &minus; ${r.ae.toFixed(4)} / ${r.me.toFixed(4)}</div></div>
       </div>
-      <div class="figs-row" style="grid-template-columns: 1fr; justify-items: center; max-width: 500px; margin: 0 auto;">
+      <div class="figs-row" style="grid-template-columns: 1fr; justify-items: center; max-width: 600px; margin: 0 auto;">
         <div class="fig-card">
-          <div class="canvas-wrap" id="${cwid}" style="height:320px"><canvas id="${cid}"></canvas></div>
+          <div class="canvas-wrap" id="${cwid}" style="height:500px"><canvas id="${cid}"></canvas></div>
           <div class="fig-cap">Fig. ${i + 1}a. Overlay Comparison — ${ALGOS[i].name}. Given Trajectory (blue), Monitored Trajectory (orange). Similarity = ${pct}</div>
         </div>
       </div>
