@@ -184,51 +184,46 @@ function setupHiDPI(canvas, cssW, cssH) {
 
 const C_SRC = '#1f6fa8', C_TST = '#c0530a';
 
-function plot2D(canvas, tracks, colors, title, b, cssH) {
+function plot2D(canvas, tracks, colors, title, b, cssH, noToolbar) {
     const cssW = canvas.parentElement.clientWidth || 500;
-    
-    const toolbarDiv = document.createElement('div');
-    toolbarDiv.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;align-items:center;padding:8px;background:#f5f5f5;border-radius:4px;border:1px solid #ddd';
-    
-    const btnStyle = 'padding:6px 12px;font-size:12px;font-family:"Source Code Pro",monospace;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#fff;color:#333;transition:all 0.2s';
-    const btnHoverStyle = 'background:#e8e8e8;border-color:#999';
-    
-    const zoomInBtn = document.createElement('button');
-    zoomInBtn.textContent = '+ Zoom In';
-    zoomInBtn.style.cssText = btnStyle;
-    zoomInBtn.onmouseover = () => zoomInBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
-    zoomInBtn.onmouseout = () => zoomInBtn.style.cssText = btnStyle;
-    
-    const zoomOutBtn = document.createElement('button');
-    zoomOutBtn.textContent = '− Zoom Out';
-    zoomOutBtn.style.cssText = btnStyle;
-    zoomOutBtn.onmouseover = () => zoomOutBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
-    zoomOutBtn.onmouseout = () => zoomOutBtn.style.cssText = btnStyle;
-    
-    const resetBtn = document.createElement('button');
-    resetBtn.textContent = '⟲ Reset View';
-    resetBtn.style.cssText = btnStyle;
-    resetBtn.onmouseover = () => resetBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
-    resetBtn.onmouseout = () => resetBtn.style.cssText = btnStyle;
-    
-    const boxSelectBtn = document.createElement('button');
-    boxSelectBtn.textContent = '▭ Box Select (Shift)';
-    boxSelectBtn.style.cssText = btnStyle;
-    boxSelectBtn.onmouseover = () => boxSelectBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
-    boxSelectBtn.onmouseout = () => {
-        if (!boxSelectMode) boxSelectBtn.style.cssText = btnStyle;
-    };
-    
-    const zoomDisplay = document.createElement('span');
-    zoomDisplay.style.cssText = 'margin-left:auto;font-family:"Source Code Pro",monospace;font-size:12px;color:#666;padding:6px 8px;background:#fff;border-radius:3px;border:1px solid #ddd;min-width:80px;text-align:center';
-    
-    toolbarDiv.appendChild(zoomInBtn);
-    toolbarDiv.appendChild(zoomOutBtn);
-    toolbarDiv.appendChild(resetBtn);
-    toolbarDiv.appendChild(boxSelectBtn);
-    toolbarDiv.appendChild(zoomDisplay);
-    
-    canvas.parentElement.insertBefore(toolbarDiv, canvas);
+
+    let zoomDisplay = null;
+    let zoomInBtn = null, zoomOutBtn = null, resetBtn = null, boxSelectBtn = null;
+
+    if (!noToolbar) {
+        const toolbarDiv = document.createElement('div');
+        toolbarDiv.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;align-items:center;padding:8px;background:#f5f5f5;border-radius:4px;border:1px solid #ddd';
+        const btnStyle = 'padding:6px 12px;font-size:12px;font-family:"Source Code Pro",monospace;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#fff;color:#333;transition:all 0.2s';
+        const btnHoverStyle = 'background:#e8e8e8;border-color:#999';
+        zoomInBtn = document.createElement('button');
+        zoomInBtn.textContent = '+ Zoom In';
+        zoomInBtn.style.cssText = btnStyle;
+        zoomInBtn.onmouseover = () => zoomInBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
+        zoomInBtn.onmouseout = () => zoomInBtn.style.cssText = btnStyle;
+        zoomOutBtn = document.createElement('button');
+        zoomOutBtn.textContent = '− Zoom Out';
+        zoomOutBtn.style.cssText = btnStyle;
+        zoomOutBtn.onmouseover = () => zoomOutBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
+        zoomOutBtn.onmouseout = () => zoomOutBtn.style.cssText = btnStyle;
+        resetBtn = document.createElement('button');
+        resetBtn.textContent = '⟲ Reset View';
+        resetBtn.style.cssText = btnStyle;
+        resetBtn.onmouseover = () => resetBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
+        resetBtn.onmouseout = () => resetBtn.style.cssText = btnStyle;
+        boxSelectBtn = document.createElement('button');
+        boxSelectBtn.textContent = '▭ Box Select (Shift)';
+        boxSelectBtn.style.cssText = btnStyle;
+        boxSelectBtn.onmouseover = () => boxSelectBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
+        boxSelectBtn.onmouseout = () => { if (!boxSelectMode) boxSelectBtn.style.cssText = btnStyle; };
+        zoomDisplay = document.createElement('span');
+        zoomDisplay.style.cssText = 'margin-left:auto;font-family:"Source Code Pro",monospace;font-size:12px;color:#666;padding:6px 8px;background:#fff;border-radius:3px;border:1px solid #ddd;min-width:80px;text-align:center';
+        toolbarDiv.appendChild(zoomInBtn);
+        toolbarDiv.appendChild(zoomOutBtn);
+        toolbarDiv.appendChild(resetBtn);
+        toolbarDiv.appendChild(boxSelectBtn);
+        toolbarDiv.appendChild(zoomDisplay);
+        canvas.parentElement.insertBefore(toolbarDiv, canvas);
+    }
     
     const ctx = setupHiDPI(canvas, cssW, cssH);
     const W = cssW, H = cssH;
@@ -345,15 +340,17 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
             ctx.lineWidth = 1.5;
             ctx.strokeRect(x1, y1, w, h);
         }
-        zoomDisplay.textContent = `Zoom: ${zoom.toFixed(2)}x`;
+        if (zoomDisplay) zoomDisplay.textContent = `Zoom: ${zoom.toFixed(2)}x`;
     }
 
     redraw();
 
-    zoomInBtn.addEventListener('click', () => { zoom = Math.max(1, Math.min(50, zoom + 0.2)); constrainPan(); redraw(); });
-    zoomOutBtn.addEventListener('click', () => { zoom = Math.max(1, Math.min(50, zoom - 0.2)); constrainPan(); redraw(); });
-    resetBtn.addEventListener('click', () => { zoom = 1; panX = 0; panY = 0; boxSelectMode = false; isBoxSelecting = false; boxSelectBtn.style.cssText = btnStyle; redraw(); });
-    boxSelectBtn.addEventListener('click', () => {
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => { zoom = Math.max(1, Math.min(50, zoom + 0.2)); constrainPan(); redraw(); });
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { zoom = Math.max(1, Math.min(50, zoom - 0.2)); constrainPan(); redraw(); });
+    if (resetBtn) resetBtn.addEventListener('click', () => { zoom = 1; panX = 0; panY = 0; boxSelectMode = false; isBoxSelecting = false; redraw(); });
+    if (boxSelectBtn) boxSelectBtn.addEventListener('click', () => {
+        const btnStyle = 'padding:6px 12px;font-size:12px;font-family:"Source Code Pro",monospace;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#fff;color:#333;transition:all 0.2s';
+        const btnHoverStyle = 'background:#e8e8e8;border-color:#999';
         boxSelectMode = !boxSelectMode;
         if (boxSelectMode) { boxSelectBtn.style.cssText = btnStyle + ';' + btnHoverStyle + ';background:#d4e9f7;border-color:#1f6fa8'; }
         else { boxSelectBtn.style.cssText = btnStyle; }
@@ -598,10 +595,11 @@ function run() {
 
     const top3Section = document.createElement('div');
     top3Section.id = 'top3Section';
+    top3Section.style.cssText = 'width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;box-sizing:border-box;padding:0 32px;';
     top3Section.innerHTML = `
       <h2 class="sec-heading">§2b. Top 3 Algorithm Comparison — 2D Overlay</h2>
       <p class="sec-sub">Side-by-side overlay plots for the three highest-accuracy algorithms. Blue = Given Trajectory, Orange (dashed) = Monitored Trajectory.</p>
-      <div id="top3Grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:28px;"></div>
+      <div id="top3Grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:32px;width:100%;box-sizing:border-box;"></div>
     `;
 
     if (sec3Heading) {
@@ -698,31 +696,31 @@ function run() {
             const wrapId = `top3_wrap_${rank}`;
 
             const card = document.createElement('div');
-            card.style.cssText = 'display:flex;flex-direction:column;background:#fff;border:1px solid #dde0e6;border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.07)';
+            card.style.cssText = 'display:flex;flex-direction:column;background:#fff;border:1px solid #dde0e6;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);width:100%;box-sizing:border-box;';
 
             // Medal header
             const header = document.createElement('div');
-            header.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8f7f4;border-bottom:1px solid #dde0e6`;
+            header.style.cssText = `display:flex;align-items:center;gap:12px;padding:14px 18px;background:#f8f7f4;border-bottom:1px solid #dde0e6`;
             header.innerHTML = `
-              <span style="font-size:18px;font-weight:700;color:${medalColors[rank]};min-width:28px;text-align:center">${['🥇','🥈','🥉'][rank]}</span>
+              <span style="font-size:22px;font-weight:700;color:${medalColors[rank]};min-width:32px;text-align:center">${['🥇','🥈','🥉'][rank]}</span>
               <div style="flex:1;min-width:0">
-                <div style="font-family:'Source Code Pro',monospace;font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em">${ALGOS[algoIdx].num}</div>
-                <div style="font-family:'EB Garamond',serif;font-size:13px;font-weight:600;color:#1a1916;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${ALGOS[algoIdx].name}">${ALGOS[algoIdx].name}</div>
+                <div style="font-family:'Source Code Pro',monospace;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em">${ALGOS[algoIdx].num}</div>
+                <div style="font-family:'EB Garamond',serif;font-size:15px;font-weight:600;color:#1a1916;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${ALGOS[algoIdx].name}">${ALGOS[algoIdx].name}</div>
               </div>
-              <span style="font-family:'Source Code Pro',monospace;font-size:13px;font-weight:700;color:${r.accuracy >= 85 ? '#2e7d32' : r.accuracy >= 65 ? '#e65100' : '#c62828'};white-space:nowrap">${r.accuracy.toFixed(1)}%</span>
+              <span style="font-family:'Source Code Pro',monospace;font-size:15px;font-weight:700;color:${r.accuracy >= 85 ? '#2e7d32' : r.accuracy >= 65 ? '#e65100' : '#c62828'};white-space:nowrap">${r.accuracy.toFixed(1)}%</span>
             `;
 
             // Canvas wrap
             const canvasWrap = document.createElement('div');
             canvasWrap.id = wrapId;
-            canvasWrap.style.cssText = 'position:relative;flex:1;min-height:260px';
+            canvasWrap.style.cssText = 'position:relative;flex:1;min-height:420px;width:100%';
             const canvas = document.createElement('canvas');
             canvas.id = canvasId;
             canvasWrap.appendChild(canvas);
 
             // Caption
             const caption = document.createElement('div');
-            caption.style.cssText = 'padding:7px 12px;font-family:"Source Code Pro",monospace;font-size:11px;color:#666;border-top:1px solid #eee;text-align:center;background:#fafaf8';
+            caption.style.cssText = 'padding:9px 14px;font-family:"Source Code Pro",monospace;font-size:12px;color:#666;border-top:1px solid #eee;text-align:center;background:#fafaf8';
             caption.textContent = `Sim = ${pct}  ·  Acc = ${r.accuracy.toFixed(2)}%`;
 
             card.appendChild(header);
@@ -732,7 +730,7 @@ function run() {
 
             // Draw after DOM is ready
             requestAnimationFrame(() => {
-                plot2D(canvas, [S, T], [C_SRC, C_TST], '', b, 260);
+                plot2D(canvas, [S, T], [C_SRC, C_TST], '', b, 420, true);
             });
         });
 
