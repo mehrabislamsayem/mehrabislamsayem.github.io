@@ -730,7 +730,7 @@ function run() {
 
             // Draw after DOM is ready
             requestAnimationFrame(() => {
-                plot2D(canvas, [S, T], [C_SRC, C_TST], '', b, 420, true);
+                plot2D(canvas, [S, T], [C_SRC, C_TST], '', b, 420);
             });
         });
 
