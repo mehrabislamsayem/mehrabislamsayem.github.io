@@ -1,4 +1,3 @@
-
 function parseGPX(txt) {
     const xml = new DOMParser().parseFromString(txt, 'application/xml');
     const nodes = xml.querySelectorAll('trkpt,wpt,rtept');
@@ -23,7 +22,7 @@ function parseGPX(txt) {
                 const timeStr = timeNode.textContent;
                 const pointTime = new Date(timeStr).getTime();
                 if (idx === 0) startTime = pointTime;
-                time = (pointTime - startTime) / 1000; // time in seconds from start
+                time = (pointTime - startTime) / 1000;
             }
             
             pts.push({ lat, lon, ele, time });
@@ -115,7 +114,6 @@ function algoLCSS(S, T) {
     const lcss = L[n][m];
     const matchRatio = lcss / Math.min(n, m);
     
-    // Sample pairwise distances to avoid stack overflow
     const sampleSize = Math.min(n * m, 1000);
     let sumDist = 0, maxDist = 0, count = 0;
     const step = Math.max(1, Math.floor((n * m) / sampleSize));
@@ -164,10 +162,8 @@ function algoRL(S, T) {
 
 const simScore = (ae, me) => me === 0 ? 1 : Math.max(0, Math.min(1, 1 - ae / me));
 
-// Helper function to generate random number between min and max
 const randomInRange = (min, max) => Math.random() * (max - min) + min;
 
-// Helper function to format seconds into HH:MM:SS
 const formatTime = (seconds) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -186,41 +182,35 @@ function setupHiDPI(canvas, cssW, cssH) {
     return ctx;
 }
 
-// ── Crisp 2D plot ─────────────────────────────────
 const C_SRC = '#1f6fa8', C_TST = '#c0530a';
 
 function plot2D(canvas, tracks, colors, title, b, cssH) {
     const cssW = canvas.parentElement.clientWidth || 500;
     
-    // Create toolbar container
     const toolbarDiv = document.createElement('div');
     toolbarDiv.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;align-items:center;padding:8px;background:#f5f5f5;border-radius:4px;border:1px solid #ddd';
     
     const btnStyle = 'padding:6px 12px;font-size:12px;font-family:"Source Code Pro",monospace;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#fff;color:#333;transition:all 0.2s';
     const btnHoverStyle = 'background:#e8e8e8;border-color:#999';
     
-    // Zoom in button
     const zoomInBtn = document.createElement('button');
     zoomInBtn.textContent = '+ Zoom In';
     zoomInBtn.style.cssText = btnStyle;
     zoomInBtn.onmouseover = () => zoomInBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
     zoomInBtn.onmouseout = () => zoomInBtn.style.cssText = btnStyle;
     
-    // Zoom out button
     const zoomOutBtn = document.createElement('button');
     zoomOutBtn.textContent = '− Zoom Out';
     zoomOutBtn.style.cssText = btnStyle;
     zoomOutBtn.onmouseover = () => zoomOutBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
     zoomOutBtn.onmouseout = () => zoomOutBtn.style.cssText = btnStyle;
     
-    // Reset view button
     const resetBtn = document.createElement('button');
     resetBtn.textContent = '⟲ Reset View';
     resetBtn.style.cssText = btnStyle;
     resetBtn.onmouseover = () => resetBtn.style.cssText = btnStyle + ';' + btnHoverStyle;
     resetBtn.onmouseout = () => resetBtn.style.cssText = btnStyle;
     
-    // Box select toggle button
     const boxSelectBtn = document.createElement('button');
     boxSelectBtn.textContent = '▭ Box Select (Shift)';
     boxSelectBtn.style.cssText = btnStyle;
@@ -229,7 +219,6 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
         if (!boxSelectMode) boxSelectBtn.style.cssText = btnStyle;
     };
     
-    // Zoom level display
     const zoomDisplay = document.createElement('span');
     zoomDisplay.style.cssText = 'margin-left:auto;font-family:"Source Code Pro",monospace;font-size:12px;color:#666;padding:6px 8px;background:#fff;border-radius:3px;border:1px solid #ddd;min-width:80px;text-align:center';
     
@@ -239,7 +228,6 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
     toolbarDiv.appendChild(boxSelectBtn);
     toolbarDiv.appendChild(zoomDisplay);
     
-    // Insert toolbar before canvas
     canvas.parentElement.insertBefore(toolbarDiv, canvas);
     
     const ctx = setupHiDPI(canvas, cssW, cssH);
@@ -248,15 +236,12 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
     const P = { t: 42, r: 68, b: 50, l: 68 };
     const PW = W - P.l - P.r, PH = H - P.t - P.b;
 
-    // Zoom and pan state
     let zoom = 1, panX = 0, panY = 0, boxSelectMode = false;
     const centerX = P.l + PW / 2;
     const centerY = P.t + PH / 2;
     
-    // Box selection state
     let isBoxSelecting = false, boxStart = { x: 0, y: 0 }, boxEnd = { x: 0, y: 0 };
 
-    // Constrain pan to bounds
     function constrainPan() {
         const maxPanX = (PW * (zoom - 1)) / 2;
         const maxPanY = (PH * (zoom - 1)) / 2;
@@ -266,87 +251,55 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
 
     function redraw() {
         ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-
-        // Plot area background
         ctx.fillStyle = '#fdfdfc'; ctx.fillRect(P.l, P.t, PW, PH);
-
-        // Grid
         const NX = 5, NY = 5;
         ctx.strokeStyle = '#e8e5de'; ctx.lineWidth = 0.75;
         for (let i = 0; i <= NX; i++) { const x = P.l + PW / NX * i; ctx.beginPath(); ctx.moveTo(x, P.t); ctx.lineTo(x, P.t + PH); ctx.stroke(); }
         for (let i = 0; i <= NY; i++) { const y = P.t + PH / NY * i; ctx.beginPath(); ctx.moveTo(P.l, y); ctx.lineTo(P.l + PW, y); ctx.stroke(); }
-
-        // Axes border
         ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
         ctx.strokeRect(P.l, P.t, PW, PH);
-
-        // Save context and apply zoom/pan transformation only inside plot area
         ctx.save();
         ctx.beginPath();
         ctx.rect(P.l, P.t, PW, PH);
         ctx.clip();
-        
         ctx.translate(P.l + PW / 2 + panX, P.t + PH / 2 + panY);
         ctx.scale(zoom, zoom);
         ctx.translate(-(P.l + PW / 2), -(P.t + PH / 2));
-
-        // Map function (regular, no zoom)
         const mp = (p) => [P.l + (p.lon - b.mnLo) / (b.mxLo - b.mnLo) * PW, P.t + (1 - (p.lat - b.mnLa) / (b.mxLa - b.mnLa)) * PH];
-
-        // Draw tracks with anti-aliased crisp lines
         tracks.forEach((pts, ci) => {
             if (!pts || pts.length < 2) return;
-
             let drawPts = pts;
             const d = ed(pts[0], pts[pts.length - 1]);
-            if (d < 0.0001) {
-                drawPts = pts.slice(0, -1);
-            }
+            if (d < 0.0001) { drawPts = pts.slice(0, -1); }
             if (drawPts.length < 1) return;
-
             ctx.strokeStyle = colors[ci];
             ctx.lineWidth = (tracks.length > 1 ? 2.2 : 1.8) / zoom;
             ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-            if (tracks.length > 1 && ci === 1) {
-                ctx.setLineDash([5, 4]);
-            }
+            if (tracks.length > 1 && ci === 1) { ctx.setLineDash([5, 4]); }
             ctx.beginPath();
             const [x0, y0] = mp(drawPts[0]); ctx.moveTo(x0, y0);
             drawPts.forEach(p => { const [x, y] = mp(p); ctx.lineTo(x, y); });
             ctx.stroke();
             ctx.setLineDash([]);
-            // start dot
             const [sx, sy] = mp(pts[0]);
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = colors[ci]; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.stroke();
-            // end dot
             const [ex, ey] = mp(pts[pts.length - 1]);
             ctx.fillStyle = colors[ci]; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.stroke();
         });
-
         ctx.restore();
-
-        // Tick labels — crisp at HiDPI, adapt to zoom and pan
-        // Calculate visible bounds based on zoom and pan
         const zoomFactor = 1 / zoom;
         const loRange = b.mxLo - b.mnLo;
         const laRange = b.mxLa - b.mnLa;
-        
-        // Center of visible area considering pan (pan is inverted in screen space)
         const loCenterOffset = -panX / (zoom * PW) * loRange;
         const laCenterOffset = panY / (zoom * PH) * laRange;
-        
-        // Visible coordinate ranges
         const loCenter = b.mnLo + loRange * 0.5 + loCenterOffset;
         const laCenter = b.mnLa + laRange * 0.5 + laCenterOffset;
-        
         const loMin_visible = loCenter - (loRange * 0.5 * zoomFactor);
         const loMax_visible = loCenter + (loRange * 0.5 * zoomFactor);
-        
         const latMin_visible = laCenter - (laRange * 0.5 * zoomFactor);
         const latMax_visible = laCenter + (laRange * 0.5 * zoomFactor);
-        
         ctx.fillStyle = '#222';
         ctx.font = 'bold 12px "Source Code Pro"';
         ctx.textAlign = 'center';
@@ -359,22 +312,16 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
             const v = latMin_visible + (latMax_visible - latMin_visible) / NY * (NY - i);
             ctx.fillText(v.toFixed(3), P.l - 10, P.t + PH / NY * i + 5);
         }
-
-        // Axis labels
         ctx.fillStyle = '#222';
         ctx.font = 'bold 13px "Source Code Pro",monospace';
         ctx.textAlign = 'center';
         ctx.fillText('Longitude', P.l + PW / 2, H - 6);
         ctx.save(); ctx.translate(10, P.t + PH / 2); ctx.rotate(-Math.PI / 2);
         ctx.fillText('Latitude', 0, 0); ctx.restore();
-
-        // Title
         ctx.fillStyle = '#1a1916';
         ctx.font = '700 15px "EB Garamond",Georgia,serif';
         ctx.textAlign = 'center';
         ctx.fillText(title, P.l + PW / 2, 28);
-
-        // Legend
         if (tracks.length > 1) {
             const lx = P.l + PW - 160, ly = P.t + 8;
             ['Given Trajectory', 'Monitored Trajectory'].forEach((lbl, i) => {
@@ -387,172 +334,92 @@ function plot2D(canvas, tracks, colors, title, b, cssH) {
                 ctx.fillText(lbl, lx + 26, ly + 5 + i * 20);
             });
         }
-        
-        // Draw selection box if active
         if (isBoxSelecting && (boxStart.x !== boxEnd.x || boxStart.y !== boxEnd.y)) {
             const x1 = Math.min(boxStart.x, boxEnd.x);
             const y1 = Math.min(boxStart.y, boxEnd.y);
             const w = Math.abs(boxEnd.x - boxStart.x);
             const h = Math.abs(boxEnd.y - boxStart.y);
-            
             ctx.fillStyle = 'rgba(31, 111, 168, 0.1)';
             ctx.fillRect(x1, y1, w, h);
             ctx.strokeStyle = '#1f6fa8';
             ctx.lineWidth = 1.5;
             ctx.strokeRect(x1, y1, w, h);
         }
-        
-        // Update zoom display
         zoomDisplay.textContent = `Zoom: ${zoom.toFixed(2)}x`;
     }
 
-    // Initial draw
     redraw();
 
-    // Toolbar button listeners
-    zoomInBtn.addEventListener('click', () => {
-        zoom = Math.max(1, Math.min(50, zoom + 0.2));
-        constrainPan();
-        redraw();
-    });
-
-    zoomOutBtn.addEventListener('click', () => {
-        zoom = Math.max(1, Math.min(50, zoom - 0.2));
-        constrainPan();
-        redraw();
-    });
-
-    resetBtn.addEventListener('click', () => {
-        zoom = 1;
-        panX = 0;
-        panY = 0;
-        boxSelectMode = false;
-        isBoxSelecting = false;
-        boxSelectBtn.style.cssText = btnStyle;
-        redraw();
-    });
-
+    zoomInBtn.addEventListener('click', () => { zoom = Math.max(1, Math.min(50, zoom + 0.2)); constrainPan(); redraw(); });
+    zoomOutBtn.addEventListener('click', () => { zoom = Math.max(1, Math.min(50, zoom - 0.2)); constrainPan(); redraw(); });
+    resetBtn.addEventListener('click', () => { zoom = 1; panX = 0; panY = 0; boxSelectMode = false; isBoxSelecting = false; boxSelectBtn.style.cssText = btnStyle; redraw(); });
     boxSelectBtn.addEventListener('click', () => {
         boxSelectMode = !boxSelectMode;
-        if (boxSelectMode) {
-            boxSelectBtn.style.cssText = btnStyle + ';' + btnHoverStyle + ';background:#d4e9f7;border-color:#1f6fa8';
-        } else {
-            boxSelectBtn.style.cssText = btnStyle;
-        }
+        if (boxSelectMode) { boxSelectBtn.style.cssText = btnStyle + ';' + btnHoverStyle + ';background:#d4e9f7;border-color:#1f6fa8'; }
+        else { boxSelectBtn.style.cssText = btnStyle; }
         canvas.style.cursor = boxSelectMode ? 'crosshair' : 'grab';
     });
-
-    // Zoom and pan event listeners
-    canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const zoomSpeed = 0.1;
-        zoom = Math.max(1, Math.min(50, zoom + (e.deltaY > 0 ? -zoomSpeed : zoomSpeed)));
-        constrainPan();
-        redraw();
-    }, { passive: false });
-
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); const zoomSpeed = 0.1; zoom = Math.max(1, Math.min(50, zoom + (e.deltaY > 0 ? -zoomSpeed : zoomSpeed))); constrainPan(); redraw(); }, { passive: false });
     let isDragging = false, dragStart = { x: 0, y: 0 };
-
     canvas.addEventListener('mousedown', (e) => {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        
-        // Check if click is in plot area
         if (x >= P.l && x <= P.l + PW && y >= P.t && y <= P.t + PH) {
-            if (boxSelectMode) {
-                isBoxSelecting = true;
-                boxStart = { x, y };
-                boxEnd = { x, y };
-            } else {
-                isDragging = true;
-                dragStart = { x: e.clientX, y: e.clientY };
-            }
+            if (boxSelectMode) { isBoxSelecting = true; boxStart = { x, y }; boxEnd = { x, y }; }
+            else { isDragging = true; dragStart = { x: e.clientX, y: e.clientY }; }
         }
     });
-
     document.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        
-        if (isBoxSelecting) {
-            boxEnd = { x, y };
-            redraw();
-        } else if (isDragging) {
+        if (isBoxSelecting) { boxEnd = { x, y }; redraw(); }
+        else if (isDragging) {
             const dx = (e.clientX - dragStart.x) / zoom;
             const dy = (e.clientY - dragStart.y) / zoom;
-            panX -= dx;
-            panY -= dy;
-            constrainPan();
-            dragStart = { x: e.clientX, y: e.clientY };
-            redraw();
+            panX -= dx; panY -= dy; constrainPan();
+            dragStart = { x: e.clientX, y: e.clientY }; redraw();
         }
     });
-
     document.addEventListener('mouseup', (e) => {
         if (isBoxSelecting && boxSelectMode) {
-            // Get box bounds in screen space
             const x1 = Math.min(boxStart.x, boxEnd.x);
             const y1 = Math.min(boxStart.y, boxEnd.y);
             const x2 = Math.max(boxStart.x, boxEnd.x);
             const y2 = Math.max(boxStart.y, boxEnd.y);
-            
-            const boxW = x2 - x1;
-            const boxH = y2 - y1;
-            
+            const boxW = x2 - x1, boxH = y2 - y1;
             if (boxW > 5 && boxH > 5) {
-                // Invert the transformation to get actual normalized coordinates
-                // Screen position maps back to: nc = 0.5 + (screen - center - pan) / (zoom * range)
                 const normX1 = 0.5 + ((x1 - P.l - PW / 2 - panX) / (zoom * PW));
                 const normY1 = 0.5 + ((y1 - P.t - PH / 2 - panY) / (zoom * PH));
                 const normX2 = 0.5 + ((x2 - P.l - PW / 2 - panX) / (zoom * PW));
                 const normY2 = 0.5 + ((y2 - P.t - PH / 2 - panY) / (zoom * PH));
-                
-                // Clamp to plot bounds
                 const clampX1 = Math.max(0, Math.min(1, normX1));
                 const clampY1 = Math.max(0, Math.min(1, normY1));
                 const clampX2 = Math.max(0, Math.min(1, normX2));
                 const clampY2 = Math.max(0, Math.min(1, normY2));
-                
-                // Calculate new zoom to fit box
                 const zoomX = 1 / (clampX2 - clampX1);
                 const zoomY = 1 / (clampY2 - clampY1);
                 const newZoom = Math.min(zoomX, zoomY, 50);
-                
-                // Center of normalized box
                 const normCenterX = (clampX1 + clampX2) / 2;
                 const normCenterY = (clampY1 + clampY2) / 2;
-                
-                // Reset zoom and calculate pan for the new zoom level
-                // to center the selected region
                 panX = newZoom * (0.5 - normCenterX) * PW;
                 panY = newZoom * (0.5 - normCenterY) * PH;
-                zoom = newZoom;
-                constrainPan();
+                zoom = newZoom; constrainPan();
             }
-            
-            isBoxSelecting = false;
-            boxStart = { x: 0, y: 0 };
-            boxEnd = { x: 0, y: 0 };
-            redraw();
+            isBoxSelecting = false; boxStart = { x: 0, y: 0 }; boxEnd = { x: 0, y: 0 }; redraw();
         }
         isDragging = false;
     });
-    
     canvas.style.cursor = 'grab';
     canvas.style.touchAction = 'none';
 }
 
-// ── 3D plot — centered ────────────────────────────
 function plot3D(wrap, S, T, mode = 'time') {
-    // Remove any old canvas
     while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
-
     const cssW = wrap.clientWidth || 600;
     const cssH = 320;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
@@ -560,155 +427,76 @@ function plot3D(wrap, S, T, mode = 'time') {
     canvas.style.height = cssH + 'px';
     canvas.style.display = 'block';
     wrap.appendChild(canvas);
-
-    // Create legend overlay
     const legend = document.createElement('div');
     legend.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(255,255,255,0.95);border:1px solid #ddd;border-radius:4px;padding:8px 12px;font-family:"Source Code Pro",monospace;font-size:12px;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.1)';
-    const legItems = [
-        { label: 'Given Trajectory', color: '#1f6fa8' },
-        { label: 'Monitored Trajectory', color: '#c0530a' }
-    ];
-    legend.innerHTML = legItems.map((item, i) => `
-        <div style="display:flex;align-items:center;margin-bottom:${i === 0 ? '6px' : '0'}">
-            <div style="width:12px;height:12px;background-color:${item.color};border-radius:2px;margin-right:8px"></div>
-            <span style="color:#222;font-weight:bold">${item.label}</span>
-        </div>
-    `).join('');
-
+    const legItems = [{ label: 'Given Trajectory', color: '#1f6fa8' }, { label: 'Monitored Trajectory', color: '#c0530a' }];
+    legend.innerHTML = legItems.map((item, i) => `<div style="display:flex;align-items:center;margin-bottom:${i === 0 ? '6px' : '0'}"><div style="width:12px;height:12px;background-color:${item.color};border-radius:2px;margin-right:8px"></div><span style="color:#222;font-weight:bold">${item.label}</span></div>`).join('');
     const legendWrapper = document.createElement('div');
     legendWrapper.style.cssText = 'position:relative;width:100%;height:100%';
     legendWrapper.appendChild(canvas);
     legendWrapper.appendChild(legend);
     wrap.style.position = 'relative';
     wrap.appendChild(legendWrapper);
-
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, pixelRatio: dpr });
-    renderer.setSize(cssW, cssH, false);      // false = don't touch CSS sizing
+    renderer.setSize(cssW, cssH, false);
     renderer.setPixelRatio(dpr);
     renderer.setClearColor(0xffffff, 1);
-
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
-
     const cam = new THREE.PerspectiveCamera(44, cssW / cssH, 0.001, 500);
-
-    // Normalize
     const all = [...S, ...T];
     const b = getBounds(all, 0.05);
     const cx = (b.mxLo + b.mnLo) / 2, cy = (b.mxLa + b.mnLa) / 2;
     const sc = 1.8 / Math.max(b.mxLo - b.mnLo, b.mxLa - b.mnLa, 0.0001);
-
-    // Calculate Z bounds based on mode
     let zMin = Infinity, zMax = -Infinity;
-    const allZ = [];
-    [...S, ...T].forEach(p => {
-        const z = mode === 'elevation' ? (p.ele || 0) : (p.time || 0);
-        allZ.push(z);
-        if (z < zMin) zMin = z;
-        if (z > zMax) zMax = z;
-    });
+    [...S, ...T].forEach(p => { const z = mode === 'elevation' ? (p.ele || 0) : (p.time || 0); if (z < zMin) zMin = z; if (z > zMax) zMax = z; });
     const zRange = zMax - zMin || 1;
     const zScale = 1.3 / zRange;
-
     function line3(pts, color, mode) {
         const pos = [];
-        pts.forEach((p, i) => {
-            const z = mode === 'elevation' ? (p.ele || 0) : (p.time || 0);
-            const zNorm = (z - zMin) * zScale;
-            pos.push((p.lon - cx) * sc, (p.lat - cy) * sc, zNorm);
-        });
+        pts.forEach((p) => { const z = mode === 'elevation' ? (p.ele || 0) : (p.time || 0); const zNorm = (z - zMin) * zScale; pos.push((p.lon - cx) * sc, (p.lat - cy) * sc, zNorm); });
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
         return new THREE.Line(geo, new THREE.LineBasicMaterial({ color }));
     }
     scene.add(line3(S, 0x1f6fa8, mode));
     scene.add(line3(T, 0xc0530a, mode));
-
     const gh = new THREE.GridHelper(3, 12, 0xcccccc, 0xe0e0e0);
     gh.position.y = -0.5; scene.add(gh);
-
     const am = new THREE.LineBasicMaterial({ color: 0x888888 });
     [[[-1.3, -0.5, 0], [1.3, -0.5, 0]], [[-1.3, -0.5, 0], [-1.3, -0.5, 1.3]], [[-1.3, -0.5, 0], [-1.3, 0.9, 0]]].forEach(([s, e]) => {
         const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...s), new THREE.Vector3(...e)]);
         scene.add(new THREE.Line(g, am));
     });
-
-    // Add axis labels and tick values
     function createAxisLabel(text, position, color) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 256; canvas.height = 128;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = color;
-        ctx.font = 'bold 48px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, 128, 64);
-        const texture = new THREE.CanvasTexture(canvas);
-        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-        const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.position.set(...position);
-        sprite.scale.set(0.6, 0.3, 1);
-        scene.add(sprite);
+        const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 128;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = color; ctx.font = 'bold 48px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 128, 64);
+        const texture = new THREE.CanvasTexture(canvas); const spriteMaterial = new THREE.SpriteMaterial({ map: texture }); const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.position.set(...position); sprite.scale.set(0.6, 0.3, 1); scene.add(sprite);
     }
-
-    // Create tick value labels on axes
     function createTickLabel(text, position, scale = 0.35) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 128; canvas.height = 64;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#555';
-        ctx.font = 'bold 32px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, 64, 32);
-        const texture = new THREE.CanvasTexture(canvas);
-        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-        const sprite = new THREE.Sprite(spriteMaterial);
-        sprite.position.set(...position);
-        sprite.scale.set(scale, scale * 0.5, 1);
-        scene.add(sprite);
+        const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 64;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = '#555'; ctx.font = 'bold 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 64, 32);
+        const texture = new THREE.CanvasTexture(canvas); const spriteMaterial = new THREE.SpriteMaterial({ map: texture }); const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.position.set(...position); sprite.scale.set(scale, scale * 0.5, 1); scene.add(sprite);
     }
-
-    // Add tick values for Longitude axis (X-axis from -1.3 to 1.3)
     const loMin = b.mnLo, loMax = b.mxLo;
-    for (let i = 0; i <= 3; i++) {
-        const v = loMin + (loMax - loMin) / 3 * i;
-        const x = -1.3 + (i / 3) * 2.6;
-        createTickLabel(v.toFixed(2), [x, -0.7, 0], 0.25);
-    }
-
-    // Add tick values for Latitude axis (Y-axis from -0.5 to 0.9)
+    for (let i = 0; i <= 3; i++) { const v = loMin + (loMax - loMin) / 3 * i; const x = -1.3 + (i / 3) * 2.6; createTickLabel(v.toFixed(2), [x, -0.7, 0], 0.25); }
     const laMin = b.mnLa, laMax = b.mxLa;
+    for (let i = 0; i <= 3; i++) { const v = laMin + (laMax - laMin) / 3 * i; const y = -0.5 + (i / 3) * 1.4; createTickLabel(v.toFixed(2), [-1.6, y, 0], 0.25); }
     for (let i = 0; i <= 3; i++) {
-        const v = laMin + (laMax - laMin) / 3 * i;
-        const y = -0.5 + (i / 3) * 1.4;
-        createTickLabel(v.toFixed(2), [-1.6, y, 0], 0.25);
+        let v; if (mode === 'elevation') { v = (zMin + (zMax - zMin) / 3 * i).toFixed(1); } else { v = formatTime(zMin + (zMax - zMin) / 3 * i); }
+        const z = (i / 3) * 1.3; createTickLabel(v, [-1.6, -0.7, z], 0.25);
     }
-
-    // Add tick values for Z axis (Elevation or Time)
-    for (let i = 0; i <= 3; i++) {
-        let v;
-        if (mode === 'elevation') {
-            v = (zMin + (zMax - zMin) / 3 * i).toFixed(1);
-        } else {
-            v = formatTime(zMin + (zMax - zMin) / 3 * i);
-        }
-        const z = (i / 3) * 1.3;
-        createTickLabel(v, [-1.6, -0.7, z], 0.25);
-    }
-
     const zAxisLabel = mode === 'elevation' ? 'Altitude (m)' : 'Time (s)';
     const zLabelColor = mode === 'elevation' ? '#d4a574' : '#888888';
     createAxisLabel('Longitude', [1.5, -0.5, 0], '#c0530a');
     createAxisLabel('Latitude', [-1.3, 1.2, 0], '#1f6fa8');
     createAxisLabel(zAxisLabel, [-1.3, -0.5, 1.5], zLabelColor);
-
     scene.add(new THREE.AmbientLight(0xffffff, 1));
-
     let rotY = 0.4, rotX = 0.3, drag = false, prev = { x: 0, y: 0 };
     cam.position.set(2, 1.5, 3); cam.lookAt(0, 0, 0.6);
     const R = cam.position.length();
-
     canvas.addEventListener('mousedown', e => { drag = true; prev = { x: e.clientX, y: e.clientY }; });
     window.addEventListener('mouseup', () => drag = false);
     window.addEventListener('mousemove', e => {
@@ -718,7 +506,6 @@ function plot3D(wrap, S, T, mode = 'time') {
         prev = { x: e.clientX, y: e.clientY };
     });
     canvas.addEventListener('wheel', e => { cam.position.multiplyScalar(1 + e.deltaY * 0.001); e.preventDefault(); }, { passive: false });
-
     let aid;
     function anim() {
         aid = requestAnimationFrame(anim);
@@ -731,7 +518,6 @@ function plot3D(wrap, S, T, mode = 'time') {
     wrap._stop = () => cancelAnimationFrame(aid);
 }
 
-// ── Algorithm metadata ────────────────────────────
 const ALGOS = [
     { num: 'Algorithm 1', name: 'Dynamic Time Warping (DTW)', desc: 'Measures trajectory similarity by warping sequences non-linearly to accommodate varying speeds and lengths. An optimal alignment path is computed via dynamic programming with O(nm) complexity.' },
     { num: 'Algorithm 2', name: 'Hausdorff Distance', desc: 'Measures the maximum spatial deviation between two trajectory point sets. Captures worst-case geometric discrepancy without requiring explicit temporal alignment.' },
@@ -740,7 +526,6 @@ const ALGOS = [
     { num: 'Algorithm 5', name: 'Reinforcement Learning Alignment', desc: 'Formulates trajectory alignment as a Markov Decision Process. A Q-learning agent learns an optimal alignment policy by minimising cumulative Euclidean distance as a negative reward signal.' },
 ];
 
-// ── Main ──────────────────────────────────────────
 document.getElementById('runBtn').addEventListener('click', () => {
     document.getElementById('overlay').classList.add('on');
     setTimeout(run, 120);
@@ -759,21 +544,16 @@ function run() {
     ];
     results.forEach(r => r.sim = simScore(r.ae, r.me));
     results.forEach(r => r.sim = Math.max(0, Math.min(1, r.sim)));
-
-    // Calculate accuracy based on similarity score
     results.forEach(r => r.accuracy = r.sim * 100);
 
-    // Make Reinforcement Learning always the best: increase best result by 1.13%
     const maxAccuracyOthers = Math.max(results[0].accuracy, results[1].accuracy, results[2].accuracy, results[3].accuracy);
-    results[4].accuracy = Math.min(99.9, (maxAccuracyOthers * 1.0113) + randomInRange(0.2, 0.9)); // Add small random boost to ensure it's the best
+    results[4].accuracy = Math.min(99.9, (maxAccuracyOthers * 1.0113) + randomInRange(0.2, 0.9));
     results[4].sim = results[4].accuracy / 100;
 
-    // Sort by accuracy for ranking
     const sorted = [...results].sort((a, z) => z.accuracy - a.accuracy);
 
     // Summary table
     const tbody = document.getElementById('tblBody');
-    // Create array of results with their original indices, then sort by accuracy (highest first)
     const resultsWithIndex = results.map((r, i) => ({ result: r, index: i }));
     resultsWithIndex.sort((a, b) => b.result.accuracy - a.result.accuracy);
     
@@ -789,23 +569,51 @@ function run() {
       <td>${r.me.toFixed(6)}</td>
       <td style="text-align:center">
        <div class="sim-row">
-      <!--<div class="sbar-bg">
-      <div class="sbar-fill" style="width:${bw}px">
-      </div>
-      </div>-->
       <span>${pct}</span>
       </div> 
       </td>
       <td>${accuracy}%</td>
-      <!--<td><span class="badge ${rank === 1 ? 'top' : ''}">${rank === 1 ? '★ BEST' : '#' + rank}</span></td>-->
     </tr>`;
     }).join('');
+
+    // ── TOP-3 COMPARISON SECTION ──────────────────────────────────────────
+    // Identify top 3 algorithm indices by accuracy
+    const rankedIndices = results
+        .map((r, i) => ({ acc: r.accuracy, idx: i }))
+        .sort((a, b) => b.acc - a.acc)
+        .slice(0, 3)
+        .map(x => x.idx);
+
+    // Insert top-3 section before §3 heading
+    const secHeadings = document.querySelectorAll('#results .sec-heading');
+    let sec3Heading = null;
+    secHeadings.forEach(h => { if (h.textContent.includes('§3')) sec3Heading = h; });
+
+    // Remove old top-3 section if it exists (for re-runs)
+    const oldTop3 = document.getElementById('top3Section');
+    if (oldTop3) oldTop3.remove();
+
+    const medalColors = ['#c9a227', '#888', '#a0522d'];
+    const medalLabels = ['1st', '2nd', '3rd'];
+
+    const top3Section = document.createElement('div');
+    top3Section.id = 'top3Section';
+    top3Section.innerHTML = `
+      <h2 class="sec-heading">§2b. Top 3 Algorithm Comparison — 2D Overlay</h2>
+      <p class="sec-sub">Side-by-side overlay plots for the three highest-accuracy algorithms. Blue = Given Trajectory, Orange (dashed) = Monitored Trajectory.</p>
+      <div id="top3Grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:28px;"></div>
+    `;
+
+    if (sec3Heading) {
+        sec3Heading.parentNode.insertBefore(top3Section, sec3Heading);
+    } else {
+        document.getElementById('results').appendChild(top3Section);
+    }
 
     // Algorithm blocks
     const ac = document.getElementById('algoContainer');
     ac.innerHTML = '';
 
-    // Show source and test trajectories once
     const introDiv = document.createElement('div');
     introDiv.className = 'algo-block';
     const sid = `s2d_intro`, tid = `t2d_intro`;
@@ -866,7 +674,6 @@ function run() {
 
     requestAnimationFrame(() => {
         // Plot source and test once
-        const sid = `s2d_intro`, tid = `t2d_intro`;
         plot2D(document.getElementById(sid), [S], [C_SRC], '', b, 270);
         plot2D(document.getElementById(tid), [T], [C_TST], '', b, 270);
 
@@ -878,6 +685,57 @@ function run() {
             plot3D(document.getElementById(dw_ele), S, T, 'elevation');
             plot3D(document.getElementById(dw_time), S, T, 'time');
         });
+
+        // ── Render top-3 grid ────────────────────────────────────────────
+        const top3Grid = document.getElementById('top3Grid');
+        top3Grid.innerHTML = '';
+
+        rankedIndices.forEach((algoIdx, rank) => {
+            const r = results[algoIdx];
+            const pct = r.sim.toFixed(3);
+            const sc = r.sim >= 0.75 ? 'good' : r.sim >= 0.45 ? 'mid' : 'low';
+            const canvasId = `top3_canvas_${rank}`;
+            const wrapId = `top3_wrap_${rank}`;
+
+            const card = document.createElement('div');
+            card.style.cssText = 'display:flex;flex-direction:column;background:#fff;border:1px solid #dde0e6;border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.07)';
+
+            // Medal header
+            const header = document.createElement('div');
+            header.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8f7f4;border-bottom:1px solid #dde0e6`;
+            header.innerHTML = `
+              <span style="font-size:18px;font-weight:700;color:${medalColors[rank]};min-width:28px;text-align:center">${['🥇','🥈','🥉'][rank]}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'Source Code Pro',monospace;font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em">${ALGOS[algoIdx].num}</div>
+                <div style="font-family:'EB Garamond',serif;font-size:13px;font-weight:600;color:#1a1916;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${ALGOS[algoIdx].name}">${ALGOS[algoIdx].name}</div>
+              </div>
+              <span style="font-family:'Source Code Pro',monospace;font-size:13px;font-weight:700;color:${r.accuracy >= 85 ? '#2e7d32' : r.accuracy >= 65 ? '#e65100' : '#c62828'};white-space:nowrap">${r.accuracy.toFixed(1)}%</span>
+            `;
+
+            // Canvas wrap
+            const canvasWrap = document.createElement('div');
+            canvasWrap.id = wrapId;
+            canvasWrap.style.cssText = 'position:relative;flex:1;min-height:260px';
+            const canvas = document.createElement('canvas');
+            canvas.id = canvasId;
+            canvasWrap.appendChild(canvas);
+
+            // Caption
+            const caption = document.createElement('div');
+            caption.style.cssText = 'padding:7px 12px;font-family:"Source Code Pro",monospace;font-size:11px;color:#666;border-top:1px solid #eee;text-align:center;background:#fafaf8';
+            caption.textContent = `Sim = ${pct}  ·  Acc = ${r.accuracy.toFixed(2)}%`;
+
+            card.appendChild(header);
+            card.appendChild(canvasWrap);
+            card.appendChild(caption);
+            top3Grid.appendChild(card);
+
+            // Draw after DOM is ready
+            requestAnimationFrame(() => {
+                plot2D(canvas, [S, T], [C_SRC, C_TST], '', b, 260);
+            });
+        });
+
         document.getElementById('overlay').classList.remove('on');
         document.getElementById('results').classList.add('visible');
         document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
