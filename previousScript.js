@@ -3,20 +3,20 @@ function parseGPX(txt) {
     const nodes = xml.querySelectorAll('trkpt,wpt,rtept');
     const pts = [];
     let startTime = null;
-
+    
     nodes.forEach((n, idx) => {
         const lat = parseFloat(n.getAttribute('lat'));
         const lon = parseFloat(n.getAttribute('lon'));
         if (!isNaN(lat) && !isNaN(lon)) {
             const eleNode = n.querySelector('ele');
             const timeNode = n.querySelector('time');
-
+            
             let ele = 0;
             if (eleNode && eleNode.textContent) {
                 ele = parseFloat(eleNode.textContent);
                 if (isNaN(ele)) ele = 0;
             }
-
+            
             let time = 0;
             if (timeNode && timeNode.textContent) {
                 const timeStr = timeNode.textContent;
@@ -24,7 +24,7 @@ function parseGPX(txt) {
                 if (idx === 0) startTime = pointTime;
                 time = (pointTime - startTime) / 1000;
             }
-
+            
             pts.push({ lat, lon, ele, time });
         }
     });
@@ -113,7 +113,7 @@ function algoLCSS(S, T) {
     }
     const lcss = L[n][m];
     const matchRatio = lcss / Math.min(n, m);
-
+    
     const sampleSize = Math.min(n * m, 1000);
     let sumDist = 0, maxDist = 0, count = 0;
     const step = Math.max(1, Math.floor((n * m) / sampleSize));
@@ -224,7 +224,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH, noToolbar) {
         toolbarDiv.appendChild(zoomDisplay);
         canvas.parentElement.insertBefore(toolbarDiv, canvas);
     }
-
+    
     const ctx = setupHiDPI(canvas, cssW, cssH);
     const W = cssW, H = cssH;
 
@@ -234,7 +234,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH, noToolbar) {
     let zoom = 1, panX = 0, panY = 0, boxSelectMode = false;
     const centerX = P.l + PW / 2;
     const centerY = P.t + PH / 2;
-
+    
     let isBoxSelecting = false, boxStart = { x: 0, y: 0 }, boxEnd = { x: 0, y: 0 };
 
     function constrainPan() {
@@ -356,6 +356,7 @@ function plot2D(canvas, tracks, colors, title, b, cssH, noToolbar) {
         else { boxSelectBtn.style.cssText = btnStyle; }
         canvas.style.cursor = boxSelectMode ? 'crosshair' : 'grab';
     });
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); const zoomSpeed = 0.1; zoom = Math.max(1, Math.min(50, zoom + (e.deltaY > 0 ? -zoomSpeed : zoomSpeed))); constrainPan(); redraw(); }, { passive: false });
     let isDragging = false, dragStart = { x: 0, y: 0 };
     canvas.addEventListener('mousedown', (e) => {
         const rect = canvas.getBoundingClientRect();
@@ -552,7 +553,7 @@ function run() {
     const tbody = document.getElementById('tblBody');
     const resultsWithIndex = results.map((r, i) => ({ result: r, index: i }));
     resultsWithIndex.sort((a, b) => b.result.accuracy - a.result.accuracy);
-
+    
     tbody.innerHTML = resultsWithIndex.map(({ result: r, index: i }) => {
         const rank = sorted.findIndex(x => x === r) + 1;
         const pct = r.sim.toFixed(3);
@@ -616,10 +617,6 @@ function run() {
     const sid = `s2d_intro`, tid = `t2d_intro`;
     const swid = `sw_intro`, twid = `tw_intro`;
     introDiv.innerHTML = `
-    <h2 class="sec-heading">§2. Trajectory Visualizations</h2>
-            <p class="sec-sub">Each algorithm is illustrated with: (a) source trajectory, (b) test trajectory, (c) 2D
-                overlay
-                comparison, and (d) interactive 3D spatio-temporal plot.</p>
     <div class="algo-hdr">
       <h3 class="algo-title">Input Trajectories</h3>
     </div>
@@ -633,7 +630,7 @@ function run() {
         <div class="fig-cap">Monitored Trajectory</div>
       </div>
     </div>`;
-    document.getElementById('vizContainer').appendChild(introDiv);
+    ac.appendChild(introDiv);
 
     results.forEach((r, i) => {
         const pct = r.sim.toFixed(3);
@@ -687,58 +684,54 @@ function run() {
             plot3D(document.getElementById(dw_time), S, T, 'time');
         });
 
-        // ── Render winner 2D and 3D ──────────────────────────────────────
-        const winnerIdx = rankedIndices[0];
-        const winnerResult = results[winnerIdx];
-        const winner2dId = `winner_2d_canvas`;
-        const winner2dWrapId = `winner_2d_wrap`;
-        const winner3dEleId = `winner_3d_ele`;
-        const winner3dTimeId = `winner_3d_time`;
-        const pctWinner = winnerResult.sim.toFixed(3);
-        const scWinner = winnerResult.sim >= 0.75 ? 'good' : winnerResult.sim >= 0.45 ? 'mid' : 'low';
-
-        const winner2dand3dDiv = document.getElementById('winner2dand3d');
-        winner2dand3dDiv.innerHTML = `
-          <div class="algo-block" style="margin-bottom:32px">
-            <div class="algo-hdr">
-              <span style="font-size:24px;margin-right:12px">🏆</span>
-              <h3 class="algo-title">Best Algorithm: ${ALGOS[winnerIdx].name}</h3>
-            </div>
-            <p class="algo-desc">${ALGOS[winnerIdx].desc}</p>
-            <div class="metrics-strip">
-              <div class="met"><div class="met-label">Alignment Error</div><div class="met-val">${winnerResult.ae.toFixed(6)}</div></div>
-              <div class="met"><div class="met-label">Max Error</div><div class="met-val">${winnerResult.me.toFixed(6)}</div></div>
-              <div class="met"><div class="met-label">Similarity Score</div><div class="met-val ${scWinner}">${pctWinner}</div></div>
-              <div class="met"><div class="met-label">Accuracy</div><div class="met-val">${winnerResult.accuracy.toFixed(2)}%</div></div>
-            </div>
-            <div class="figs-row" style="grid-template-columns: 1fr; justify-items: center; max-width: 600px; margin: 0 auto 10px auto;">
-              <div class="fig-card">
-                <div class="canvas-wrap" id="${winner2dWrapId}" style="height:500px"><canvas id="${winner2dId}"></canvas></div>
-                <div class="fig-cap">Winner 2D Overlay — ${ALGOS[winnerIdx].name}. Given Trajectory (blue), Monitored Trajectory (orange). Similarity = ${pctWinner}</div>
-              </div>
-            </div>
-            <div class="figs-row" style="margin-top: 5px;">
-              <div class="fig-card">
-                <div class="canvas-3d-wrap" id="${winner3dEleId}" style="height:320px"></div>
-                <div class="fig-cap">Winner 3D View (Elevation) — Z-axis represents Altitude (m). Drag to rotate, scroll to zoom.</div>
-              </div>
-              <div class="fig-card">
-                <div class="canvas-3d-wrap" id="${winner3dTimeId}" style="height:320px"></div>
-                <div class="fig-cap">Winner 3D View (Time) — Z-axis represents Time (seconds). Drag to rotate, scroll to zoom.</div>
-              </div>
-            </div>
-          </div>
-        `;
-
         // ── Render top-3 grid ────────────────────────────────────────────
         const top3Grid = document.getElementById('top3Grid');
-        top3Grid.parentElement.style.display = 'none';
+        top3Grid.innerHTML = '';
 
-        // Draw winner visualizations
-        requestAnimationFrame(() => {
-            plot2D(document.getElementById(winner2dId), [S, T], [C_SRC, C_TST], '', b, 420);
-            plot3D(document.getElementById(winner3dEleId), S, T, 'elevation');
-            plot3D(document.getElementById(winner3dTimeId), S, T, 'time');
+        rankedIndices.forEach((algoIdx, rank) => {
+            const r = results[algoIdx];
+            const pct = r.sim.toFixed(3);
+            const sc = r.sim >= 0.75 ? 'good' : r.sim >= 0.45 ? 'mid' : 'low';
+            const canvasId = `top3_canvas_${rank}`;
+            const wrapId = `top3_wrap_${rank}`;
+
+            const card = document.createElement('div');
+            card.style.cssText = 'display:flex;flex-direction:column;background:#fff;border:1px solid #dde0e6;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);width:100%;box-sizing:border-box;';
+
+            // Medal header
+            const header = document.createElement('div');
+            header.style.cssText = `display:flex;align-items:center;gap:12px;padding:14px 18px;background:#f8f7f4;border-bottom:1px solid #dde0e6`;
+            header.innerHTML = `
+              <span style="font-size:22px;font-weight:700;color:${medalColors[rank]};min-width:32px;text-align:center">${['🥇','🥈','🥉'][rank]}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'Source Code Pro',monospace;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em">${ALGOS[algoIdx].num}</div>
+                <div style="font-family:'EB Garamond',serif;font-size:15px;font-weight:600;color:#1a1916;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${ALGOS[algoIdx].name}">${ALGOS[algoIdx].name}</div>
+              </div>
+              <span style="font-family:'Source Code Pro',monospace;font-size:15px;font-weight:700;color:${r.accuracy >= 85 ? '#2e7d32' : r.accuracy >= 65 ? '#e65100' : '#c62828'};white-space:nowrap">${r.accuracy.toFixed(1)}%</span>
+            `;
+
+            // Canvas wrap
+            const canvasWrap = document.createElement('div');
+            canvasWrap.id = wrapId;
+            canvasWrap.style.cssText = 'position:relative;flex:1;min-height:420px;width:100%';
+            const canvas = document.createElement('canvas');
+            canvas.id = canvasId;
+            canvasWrap.appendChild(canvas);
+
+            // Caption
+            const caption = document.createElement('div');
+            caption.style.cssText = 'padding:9px 14px;font-family:"Source Code Pro",monospace;font-size:12px;color:#666;border-top:1px solid #eee;text-align:center;background:#fafaf8';
+            caption.textContent = `Sim = ${pct}  ·  Acc = ${r.accuracy.toFixed(2)}%`;
+
+            card.appendChild(header);
+            card.appendChild(canvasWrap);
+            card.appendChild(caption);
+            top3Grid.appendChild(card);
+
+            // Draw after DOM is ready
+            requestAnimationFrame(() => {
+                plot2D(canvas, [S, T], [C_SRC, C_TST], '', b, 420);
+            });
         });
 
         document.getElementById('overlay').classList.remove('on');

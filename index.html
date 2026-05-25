@@ -2,92 +2,95 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trajectory Similarity Analysis — Intelligent Surveillance Systems</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Source+Code+Pro:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
-    rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trajectory Similarity Analysis — Intelligent Surveillance Systems</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Source+Code+Pro:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 
 </head>
 
 <body>
 
-  <header>
-    <div class="header-inner">
-      <div class="journal-tag">Department of Computer Science and Engineering, Sejong University, Seoul 05006, South
-        Korea</div>
-      <h1>Realtime Trajectory Similarity Measurement in Intelligent Surveillance Management Systems</h1>
-      <div class="byline">Islam Md Mahrab &amp; Nhu-Ngoc Dao &mdash; Interactive Analysis Tool</div>
-    </div>
-  </header>
-
-  <div class="overlay" id="overlay">
-    <div class="spinner"></div>
-    <div class="sp-text">COMPUTING SIMILARITY METRICS</div>
-  </div>
-
-  <div class="container">
-
-    <div class="upload-panel">
-      <div class="panel-heading">§1. Upload GPX Trajectory Files</div>
-      <div class="upload-row">
-        <div class="upload-box">
-          <div class="box-label">Trajectory A</div>
-          <div class="box-title">Given Trajectory</div>
-          <div class="drop-zone" id="sDrop">
-            <p>Drag &amp; drop .gpx file here, or</p>
-            <label class="browse-btn" for="sFile">Browse File</label>
-            <input type="file" id="sFile" accept=".gpx">
-          </div>
-          <div class="file-info" id="sInfo"></div>
+    <header>
+        <div class="header-inner">
+            <div class="journal-tag">Department of Computer Science and Engineering, Sejong University, Seoul 05006,
+                South
+                Korea</div>
+            <h1>Realtime Trajectory Similarity Measurement in Intelligent Surveillance Management Systems</h1>
+            <div class="byline">Islam Md Mahrab &amp; Nhu-Ngoc Dao &mdash; Interactive Analysis Tool</div>
         </div>
-        <div class="upload-box">
-          <div class="box-label">Trajectory B</div>
-          <div class="box-title">Monitored Trajectory</div>
-          <div class="drop-zone" id="tDrop">
-            <p>Drag &amp; drop .gpx file here, or</p>
-            <label class="browse-btn" for="tFile">Browse File</label>
-            <input type="file" id="tFile" accept=".gpx">
-          </div>
-          <div class="file-info" id="tInfo"></div>
+    </header>
+
+    <div class="overlay" id="overlay">
+        <div class="spinner"></div>
+        <div class="sp-text">COMPUTING SIMILARITY METRICS</div>
+    </div>
+
+    <div class="container">
+
+        <div class="upload-panel">
+            <div class="panel-heading">§1. Upload GPX Trajectory Files</div>
+            <div class="upload-row">
+                <div class="upload-box">
+                    <div class="box-label">Trajectory A</div>
+                    <div class="box-title">Given Trajectory</div>
+                    <div class="drop-zone" id="sDrop">
+                        <p>Drag &amp; drop .gpx file here, or</p>
+                        <label class="browse-btn" for="sFile">Browse File</label>
+                        <input type="file" id="sFile" accept=".gpx">
+                    </div>
+                    <div class="file-info" id="sInfo"></div>
+                </div>
+                <div class="upload-box">
+                    <div class="box-label">Trajectory B</div>
+                    <div class="box-title">Monitored Trajectory</div>
+                    <div class="drop-zone" id="tDrop">
+                        <p>Drag &amp; drop .gpx file here, or</p>
+                        <label class="browse-btn" for="tFile">Browse File</label>
+                        <input type="file" id="tFile" accept=".gpx">
+                    </div>
+                    <div class="file-info" id="tInfo"></div>
+                </div>
+            </div>
+            <button class="run-btn" id="runBtn" disabled>Run Trajectory Similarity Analysis</button>
         </div>
-      </div>
-      <button class="run-btn" id="runBtn" disabled>Run Trajectory Similarity Analysis</button>
+        <div class="visualization-container" id="vizContainer">
+            
+        </div>
+        <div  id="winner2dand3d">
+
+        </div>
+
+        <div class="results" id="results">
+            <h2 class="sec-heading">§2. Similarity Comparison</h2>
+            <p class="sec-sub">Five algorithms evaluated on the uploaded trajectory pair. Similarity: Sim = 1 &minus;
+                (AlignmentError / MaxError)</p>
+            <div class="tbl-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Algorithm</th>
+                            <th>Alignment Error</th>
+                            <th>Max Error</th>
+                            <th>Similarity</th>
+                            <th>Accuracy</th>
+                             <th>Rank</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblBody"></tbody>
+                </table>
+            </div>
+            <div id="algoContainer" hidden></div>
+        </div>
+
     </div>
 
-    <div class="results" id="results">
-      <h2 class="sec-heading">§2. Similarity Comparison</h2>
-      <p class="sec-sub">Five algorithms evaluated on the uploaded trajectory pair. Similarity: Sim = 1 &minus;
-        (AlignmentError / MaxError)</p>
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Algorithm</th>
-              <th>Alignment Error</th>
-              <th>Max Error</th>
-              <th>Similarity</th>
-              <th>Accuracy</th>
-              <!-- <th>Rank</th> -->
-            </tr>
-          </thead>
-          <tbody id="tblBody"></tbody>
-        </table>
-      </div>
-
-      <h2 class="sec-heading">§3. Trajectory Visualizations</h2>
-      <p class="sec-sub">Each algorithm is illustrated with: (a) source trajectory, (b) test trajectory, (c) 2D overlay
-        comparison, and (d) interactive 3D spatio-temporal plot.</p>
-      <div id="algoContainer"></div>
-    </div>
-
-  </div>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 
 
 </body>
