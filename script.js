@@ -276,12 +276,6 @@ function plot2D(canvas, tracks, colors, title, b, cssH, noToolbar) {
             drawPts.forEach(p => { const [x, y] = mp(p); ctx.lineTo(x, y); });
             ctx.stroke();
             ctx.setLineDash([]);
-            const [sx, sy] = mp(pts[0]);
-            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = colors[ci]; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.stroke();
-            const [ex, ey] = mp(pts[pts.length - 1]);
-            ctx.fillStyle = colors[ci]; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.stroke();
         });
         ctx.restore();
         const zoomFactor = 1 / zoom;
