@@ -1,6 +1,9 @@
 function parseGPX(txt) {
     const xml = new DOMParser().parseFromString(txt, 'application/xml');
-    const nodes = xml.querySelectorAll('trkpt,wpt,rtept');
+    // Prefer trkpt (actual track), fall back to rtept, then wpt (sparse waypoints)
+    let nodes = xml.querySelectorAll('trkpt');
+    if (nodes.length === 0) nodes = xml.querySelectorAll('rtept');
+    if (nodes.length === 0) nodes = xml.querySelectorAll('wpt');
     const pts = [];
     let startTime = null;
 
